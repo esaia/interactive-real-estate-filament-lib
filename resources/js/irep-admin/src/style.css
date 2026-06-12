@@ -1,0 +1,177 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+#irep-vue-app,
+#irep-vue-app-responses {
+  background-color: #f9fafb;
+  color: #111827;
+}
+
+.container-fluid {
+  @apply pr-4;
+}
+
+.svg-canvas-container {
+  @apply absolute left-0 top-0 h-full w-full cursor-crosshair [&_.first-circle]:cursor-pointer;
+}
+
+.icon-hover {
+  @apply transition-all hover:bg-primary/80 [&_path]:hover:fill-white;
+}
+
+.svgicon-hover-text {
+  @apply transition-all hover:bg-primary/80 [&_path]:hover:fill-white [&_path]:hover:text-white;
+}
+
+.sidebar-item-svgicon {
+  @apply h-fit cursor-pointer !border !border-r-0 !border-solid !border-primary p-1 !transition-all first:rounded-l-sm last-of-type:rounded-r-sm last-of-type:!border-r hover:text-white [&_svg]:h-3 [&_svg]:w-3;
+}
+
+.label {
+  @apply !mb-1 text-xs capitalize text-gray-500;
+}
+
+.badge {
+  @apply rounded-md bg-gray-200/60 px-2 py-1 text-xs font-medium text-gray-500 ring-1 ring-gray-300;
+}
+
+.v-toast.v-toast--top {
+  z-index: 999999;
+}
+.v-toast__item--success {
+  background-color: #47d78a !important;
+}
+.color {
+  color: #cb443529;
+}
+
+.slide-left-enter-active,
+.slide-left-leave-active {
+  transition: all 1s cubic-bezier(0.32, 0.72, 0, 1);
+  transform: translateX(0);
+}
+
+.slide-left-enter-from,
+.slide-left-leave-to {
+  transition-delay: 0s;
+  transform: translateX(100%);
+}
+
+.fade-in-out-enter-active,
+.fade-in-out-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-in-out-enter-from,
+.fade-in-out-leave-to {
+  opacity: 0;
+}
+
+.custom-scroll ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scroll ::-webkit-scrollbar-track {
+  border-radius: 99px;
+  width: 6px;
+  background-color: #f3f4f6;
+}
+
+.custom-scroll ::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 10px;
+}
+
+/* #ire-vue-app h1,
+#ire-vue-app h2,
+#ire-vue-app h3,
+#ire-vue-app h4,
+#ire-vue-app h5,
+#ire-vue-app h6,
+#ire-vue-app p,
+#ire-vue-app pre,
+#ire-vue-app a,
+#ire-vue-app strong,
+#ire-vue-app sub,
+#ire-vue-app sup,
+#ire-vue-app b,
+#ire-vue-app u,
+#ire-vue-app i,
+#ire-vue-app ol,
+#ire-vue-app ul,
+#ire-vue-app li,
+#irep-vue-app h1,
+#irep-vue-app h2,
+#irep-vue-app h3,
+#irep-vue-app h4,
+#irep-vue-app h5,
+#irep-vue-app h6,
+#irep-vue-app p,
+#irep-vue-app pre,
+#irep-vue-app a,
+#irep-vue-app strong,
+#irep-vue-app sub,
+#irep-vue-app sup,
+#irep-vue-app b,
+#irep-vue-app u,
+#irep-vue-app i,
+#irep-vue-app ol,
+#irep-vue-app ul,
+#irep-vue-app li,
+[id^="ire-shortcode-"] h1,
+[id^="ire-shortcode-"] h2,
+[id^="ire-shortcode-"] h3,
+[id^="ire-shortcode-"] h4,
+[id^="ire-shortcode-"] h5,
+[id^="ire-shortcode-"] h6,
+[id^="ire-shortcode-"] p,
+[id^="ire-shortcode-"] pre,
+[id^="ire-shortcode-"] a,
+[id^="ire-shortcode-"] strong,
+[id^="ire-shortcode-"] sub,
+[id^="ire-shortcode-"] sup,
+[id^="ire-shortcode-"] b,
+[id^="ire-shortcode-"] u,
+[id^="ire-shortcode-"] i,
+[id^="ire-shortcode-"] ol,
+[id^="ire-shortcode-"] ul,
+[id^="ire-shortcode-"] li {
+  margin: unset;
+  padding: unset;
+  border: unset;
+  font-size: unset;
+} */
+
+#ire-vue-app input,
+#irep-vue-app input,
+[id^="ire-shortcode-"] input {
+  /* all: unset; */
+  box-sizing: border-box;
+}
+
+/* Pin TextControl input height to WP 6.x value — WP 7.0 changed the default */
+#ire-vue-app .components-text-control__input,
+#irep-vue-app .components-text-control__input {
+  height: 31px;
+  min-height: 31px;
+}
+
+/* Keep disabled Gutenberg checkboxes visually disabled even when checked. */
+#ire-vue-app .components-checkbox-control__input[type="checkbox"]:disabled,
+#ire-vue-app .components-checkbox-control__input[type="checkbox"][aria-disabled="true"],
+#ire-vue-app .components-checkbox-control__input[type="checkbox"]:disabled:checked,
+#ire-vue-app .components-checkbox-control__input[type="checkbox"][aria-disabled="true"]:checked,
+#ire-vue-app .components-checkbox-control__input[type="checkbox"]:disabled:indeterminate,
+#ire-vue-app .components-checkbox-control__input[type="checkbox"][aria-disabled="true"]:indeterminate,
+#irep-vue-app .components-checkbox-control__input[type="checkbox"]:disabled,
+#irep-vue-app .components-checkbox-control__input[type="checkbox"][aria-disabled="true"],
+#irep-vue-app .components-checkbox-control__input[type="checkbox"]:disabled:checked,
+#irep-vue-app .components-checkbox-control__input[type="checkbox"][aria-disabled="true"]:checked,
+#irep-vue-app .components-checkbox-control__input[type="checkbox"]:disabled:indeterminate,
+#irep-vue-app .components-checkbox-control__input[type="checkbox"][aria-disabled="true"]:indeterminate {
+  background-color: #e5e7eb !important;
+  border-color: #cbd5e1 !important;
+  color: #9ca3af !important;
+}

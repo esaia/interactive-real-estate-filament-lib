@@ -1,0 +1,244 @@
+<script setup lang="ts">
+import { onMounted, ref, watch } from "vue";
+import Modal from "@components/UiComponents/Modal.vue";
+import { BlockInterface, BlockItem } from "@/types/components";
+import ajaxAxios from "@/src/utils/axios";
+import { useProjectStore } from "@/src/stores/useProject";
+import { storeToRefs } from "pinia";
+import Table from "../common/table/Table.vue";
+import TableTh from "../common/table/TableTh.vue";
+import Pagination from "../common/Pagination.vue";
+import DeleteModal from "../common/DeleteModal.vue";
+import Input from "../form/Input.vue";
+import Button from "../form/Button.vue";
+import { useBlocksStore } from "@/src/stores/useBlock";
+import CreateEditBlockModal from "./CreateEditBlockModal.vue";
+import EmptyState from "../common/EmptyState.vue";
+import Toggle from "../form/Toggle.vue";
+import { showToast } from "@/src/composables/helpers";
+
+const projectStore = useProjectStore();
+const blockStore = useBlocksStore();
+const { id } = storeToRefs(projectStore);
+
+const searchBlock = ref("");
+const showBlockModal = ref(false);
+const blocks = ref<BlockInterface>();
+const sortField = ref("");
+const sortOrder = ref<"ASC" | "DESC" | "">("ASC");
+const currentPage = ref(1);
+const perPage = ref(20);
+const duplicatedBlock = ref<BlockItem | null>(null);
+const loading = ref(false);
+
+const deleteBlockId = ref<number | null>(null);
+const showDeleteModal = ref(false);
+
+const editBlock = (block: BlockItem | null) => {
+  showBlockModal.value = true;
+  blockStore.setActiveBlock(block);
+};
+
+const duplicateBlock = (block: BlockItem | null) => {
+  if (!block) return;
+
+  showBlockModal.value = true;
+  duplicatedBlock.value = { ...block };
+};
+
+const showDeleteBlockModal = (floor: BlockItem | null) => {
+  if (!floor) return;
+
+  deleteBlockId.value = Number(floor.id);
+  showDeleteModal.value = true;
+};
+
+const deleteFloor = async () => {
+  await ajaxAxios.post("", {
+    action: "irep_delete_block",
+    nonce: irePlugin.nonce,
+    block_id: deleteBlockId.value
+  });
+
+  showDeleteModal.value = false;
+
+  fetchBlocks();
+  blockStore.fetchProjectBLocks(id.value);
+};
+
+const sort = (field: string, sortOrderString: "ASC" | "DESC" | "") => {
+  sortField.value = field;
+  sortOrder.value = sortOrderString;
+
+  fetchBlocks();
+};
+
+const fetchBlocks = async () => {
+  try {
+    loading.value = true;
+    const { data } = await ajaxAxios.post("", {
+      action: "irep_get_blocks",
+      nonce: irePlugin.nonce,
+      project_id: id.value,
+      sort_field: sortField.value,
+      sort_order: sortOrder.value,
+      page: currentPage.value,
+      per_page: perPage.value,
+      search: searchBlock.value
+    });
+
+    if (!data.success) {
+      return;
+    }
+
+    blocks.value = data.data;
+  } catch (error) {
+  } finally {
+    loading.value = false;
+  }
+};
+
+const changeBlockStatus = async (block: BlockItem, is_active: boolean) => {
+  try {
+    const { data } = await ajaxAxios.post("", {
+      action: "irep_change_block_status",
+      nonce: irePlugin.nonce,
+      block_id: block.id,
+      is_active
+    });
+
+    if (data?.success) {
+      showToast("success", "Block Status Changed");
+    } else {
+      showToast("error", "something went wrong!");
+    }
+  } catch (error) {
+    showToast("error", "something went wrong!");
+  }
+};
+
+const submitForm = () => {
+  currentPage.value = 1;
+  fetchBlocks();
+};
+
+watch(
+  () => currentPage.value,
+  () => {
+    fetchBlocks();
+  }
+);
+
+watch(
+  () => showBlockModal.value,
+  (ns) => {
+    if (!ns) {
+      fetchBlocks();
+
+      blockStore.setActiveBlock(null);
+      duplicatedBlock.value = null;
+    }
+  }
+);
+
+onMounted(() => {
+  fetchBlocks();
+});
+</script>
+
+<template>
+  <div class="mt-14 text-gray-900">
+    <form @submit.prevent="submitForm" class="mb-3 flex items-center justify-between gap-4 border-b border-gray-200 pb-3 shadow-sm">
+      <h3 class="!text-lg font-semibold capitalize">Blocks</h3>
+
+      <Input v-model="searchBlock" placeholder="Filter blocks list..." />
+      <div class="min-w-max" @click="showBlockModal = true">
+        <Button title="Add Block" outlined />
+      </div>
+    </form>
+
+    <div v-if="loading">LOADING...</div>
+
+    <div v-else-if="blocks?.data?.length" class="relative overflow-x-auto shadow-sm">
+      <Table
+        :data="blocks?.data"
+        @edit-action="(block: BlockItem | null) => editBlock(block)"
+        @duplicate-action="(block: BlockItem | null) => duplicateBlock(block)"
+        @delete-action="(block: BlockItem | null) => showDeleteBlockModal(block)"
+      >
+        <template #header>
+          <TableTh
+            fieldTitle="status"
+            field="is_active"
+            :sortable="false"
+            :sortField="sortField"
+            :sortOrder="sortOrder"
+          />
+
+          <TableTh
+            fieldTitle="Id"
+            field="id"
+            :sortable="true"
+            :sortField="sortField"
+            :sortOrder="sortOrder"
+            @sort="(field: any, sortOrder: any) => sort(field, sortOrder)"
+          />
+
+          <TableTh
+            fieldTitle="Title"
+            field="title"
+            :sortable="true"
+            :sortField="sortField"
+            :sortOrder="sortOrder"
+            @sort="(field: any, sortOrder: any) => sort(field, sortOrder)"
+          />
+
+          <TableTh
+            fieldTitle="Conf"
+            field="conf"
+            :sortable="true"
+            :sortField="sortField"
+            :sortOrder="sortOrder"
+            @sort="(field: any, sortOrder: any) => sort(field, sortOrder)"
+          />
+        </template>
+
+        <template #default="floor">
+          <td class="w-44 items-center">
+            <Toggle
+              v-model="floor.slotProps.is_active"
+              @change="(e) => changeBlockStatus(floor.slotProps, e)"
+            />
+          </td>
+          <td>{{ floor.slotProps?.id }}</td>
+          <td>{{ floor.slotProps?.title }}</td>
+          <td>{{ floor.slotProps?.conf }}</td>
+        </template>
+      </Table>
+
+      <Pagination :totalItems="Number(blocks?.total)" :perPage="perPage" v-model="currentPage" />
+    </div>
+
+    <EmptyState v-else />
+  </div>
+
+  <teleport to="#irep-vue-app">
+    <Transition name="fade">
+      <Modal :show="showBlockModal" @close="showBlockModal = false" type="2">
+        <CreateEditBlockModal :duplicatedBlock="duplicatedBlock" />
+      </Modal>
+    </Transition>
+  </teleport>
+
+  <teleport to="#irep-vue-app">
+    <Transition name="fade">
+      <Modal :show="showDeleteModal" @close="showDeleteModal = false">
+        <DeleteModal
+          :text="`Are you sure you want to delete floor with id ${deleteBlockId || ''}?`"
+          @delete-action="deleteFloor()"
+          @cancel-action="showDeleteModal = false"
+        />
+      </Modal>
+    </Transition>
+  </teleport>
+</template>
