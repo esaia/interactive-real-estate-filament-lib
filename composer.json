@@ -1,0 +1,31 @@
+{
+    "name": "irep-plugin/filament-irep",
+    "description": "Interactive Real Estate visual editor for Filament v3+",
+    "type": "library",
+    "license": "proprietary",
+    "version": "1.0.0",
+    "require": {
+        "php": "^8.2",
+        "filament/filament": "^3.0 || ^4.0 || ^5.0",
+        "illuminate/support": "^11.0 || ^12.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "IrepPlugin\\FilamentIrep\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "IrepPlugin\\FilamentIrep\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "IrepPlugin\\FilamentIrep\\FilamentIrepServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
