@@ -6,7 +6,6 @@ use Filament\Contracts\Plugin;
 use Filament\Panel;
 use IrepPlugin\FilamentIrep\Filament\Pages\IrepAdminPage;
 use IrepPlugin\FilamentIrep\Filament\Pages\SettingsPage;
-use IrepPlugin\FilamentIrep\Filament\Resources\ProjectResource;
 use IrepPlugin\FilamentIrep\Filament\Resources\ReservationResource;
 
 class FilamentIrepPlugin implements Plugin
@@ -30,7 +29,6 @@ class FilamentIrepPlugin implements Plugin
     {
         $panel
             ->resources([
-                ProjectResource::class,
                 ReservationResource::class,
             ])
             ->pages([

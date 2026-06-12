@@ -2,15 +2,18 @@
 
 namespace IrepPlugin\FilamentIrep\Filament\Pages;
 
-use Filament\Forms\Components\CheckboxList;
-use Filament\Forms\Components\KeyValue;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
-use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Tabs;
+use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Schema;
 use IrepPlugin\FilamentIrep\Models\Setting;
 
@@ -28,6 +31,21 @@ class SettingsPage extends Page
 
     public ?array $data = [];
 
+    private const COMMON_FIELDS = [
+        'id'               => 'id',
+        'flat_number'      => 'flat_number',
+        'floor_title'      => 'floor_title',
+        'floor_number'     => 'floor_number',
+        'block_title'      => 'block_title',
+        'price'            => 'price',
+        'conf'             => 'conf',
+        'type.area_m2'     => 'type.area_m2',
+        'type.rooms_count' => 'type.rooms_count',
+        'type.title'       => 'type.title',
+        'type.teaser'      => 'type.teaser',
+        'type.other.*'     => 'type.other.*',
+    ];
+
     public function getView(): string
     {
         return 'filament-irep::filament.pages.settings-page';
@@ -35,14 +53,24 @@ class SettingsPage extends Page
 
     public function mount(): void
     {
+        $savedParam = Setting::get('flatFieldQueryParameter', 'id');
+        if (str_starts_with($savedParam, 'type.other.') && $savedParam !== 'type.other.*') {
+            $flatFieldQueryParameter = 'type.other.*';
+            $typeOtherKey = substr($savedParam, strlen('type.other.'));
+        } else {
+            $flatFieldQueryParameter = $savedParam;
+            $typeOtherKey = '';
+        }
+
         $this->data = [
-            'irep_table_fields'              => Setting::get('irep_table_fields', ['flat_number', 'floor', 'area', 'price', 'status']),
-            'irep_table_contact_url'         => Setting::get('irep_table_contact_url', ''),
-            'flatFieldQueryParameter'        => Setting::get('flatFieldQueryParameter', 'flat'),
             'irep_table_one_column'          => (bool) Setting::get('irep_table_one_column', false),
             'irep_table_whole_row_clickable' => (bool) Setting::get('irep_table_whole_row_clickable', false),
-            'irep_custom_status_types'       => Setting::get('irep_custom_status_types', []),
+            'irep_table_contact_url'         => Setting::get('irep_table_contact_url', ''),
+            'flatFieldQueryParameter'        => $flatFieldQueryParameter,
+            'typeOtherKey'                   => $typeOtherKey,
             'irep_table_action_svgs'         => Setting::get('irep_table_action_svgs', ['contactSvg' => '', 'downloadSvg' => '', 'magnifySvg' => '']),
+            'irep_table_fields'              => Setting::get('irep_table_fields', []),
+            'irep_flat_custom_fields'        => Setting::get('irep_flat_custom_fields', []),
         ];
     }
 
@@ -50,81 +78,140 @@ class SettingsPage extends Page
     {
         return $schema
             ->components([
-                Form::make()->schema([
-                    Section::make('Table Display')->schema([
-                        Toggle::make('data.irep_table_one_column')->label('Single Column Layout'),
-                        Toggle::make('data.irep_table_whole_row_clickable')->label('Whole Row Clickable'),
-                        TextInput::make('data.flatFieldQueryParameter')
-                            ->label('URL Query Parameter Name')
-                            ->default('flat')
-                            ->required(),
-                        TextInput::make('data.irep_table_contact_url')
-                            ->label('CRM Contact URL')
-                            ->url()
-                            ->nullable(),
-                    ])->columns(2),
+                Tabs::make()->tabs([
 
-                    Section::make('Flat Table Columns')->schema([
-                        CheckboxList::make('data.irep_table_fields')
-                            ->label('Visible Columns')
-                            ->options([
-                                'flat_number' => 'Flat Number',
-                                'floor'       => 'Floor',
-                                'area'        => 'Area (m²)',
-                                'rooms'       => 'Rooms',
-                                'price'       => 'Price',
-                                'status'      => 'Status',
-                            ])
-                            ->columns(3),
-                    ]),
+                        Tab::make('Table Settings')->schema([
 
-                    Section::make('Custom Status Types')->schema([
-                        KeyValue::make('data.irep_custom_status_types')
-                            ->label('')
-                            ->keyLabel('Status Key')
-                            ->valueLabel('Display Label')
-                            ->addActionLabel('Add Custom Status')
-                            ->nullable(),
-                    ]),
+                            Section::make('Display Options')->schema([
+                                Toggle::make('data.irep_table_one_column')
+                                    ->label('1 column on responsive'),
+                                Toggle::make('data.irep_table_whole_row_clickable')
+                                    ->label('Whole row clickable'),
+                            ])->columns(2),
 
-                    Section::make('Action SVGs')->schema([
-                        Textarea::make('data.irep_table_action_svgs.contactSvg')
-                            ->label('Contact Icon SVG')
-                            ->rows(4)
-                            ->nullable(),
-                        Textarea::make('data.irep_table_action_svgs.downloadSvg')
-                            ->label('Download Icon SVG')
-                            ->rows(4)
-                            ->nullable(),
-                        Textarea::make('data.irep_table_action_svgs.magnifySvg')
-                            ->label('Magnify Icon SVG')
-                            ->rows(4)
-                            ->nullable(),
-                    ])->columns(3)->collapsible()->collapsed(),
-                ]),
+                            Section::make('Contact Action')->schema([
+                                TextInput::make('data.irep_table_contact_url')
+                                    ->label('Redirect URL')
+                                    ->placeholder('https://example.com/?flatid=')
+                                    ->helperText('Appended with the selected query parameter value.')
+                                    ->nullable(),
+                                Select::make('data.flatFieldQueryParameter')
+                                    ->label('Query Parameter')
+                                    ->options(self::COMMON_FIELDS)
+                                    ->default('id')
+                                    ->live()
+                                    ->required(),
+                                TextInput::make('data.typeOtherKey')
+                                    ->label('Custom key')
+                                    ->placeholder('e.g. status')
+                                    ->helperText('Saved as: type.other.{key}')
+                                    ->hidden(fn(Get $get) => $get('data.flatFieldQueryParameter') !== 'type.other.*')
+                                    ->nullable(),
+                            ])->columns(2),
+
+                            Section::make('Action Icons')
+                                ->description('Paste custom SVG for each icon. Leave blank to use the default.')
+                                ->schema([
+                                    Textarea::make('data.irep_table_action_svgs.contactSvg')
+                                        ->label('Contact Icon SVG')
+                                        ->rows(4)
+                                        ->placeholder('<svg …>…</svg>')
+                                        ->nullable(),
+                                    Textarea::make('data.irep_table_action_svgs.downloadSvg')
+                                        ->label('Download Icon SVG')
+                                        ->rows(4)
+                                        ->placeholder('<svg …>…</svg>')
+                                        ->nullable(),
+                                    Textarea::make('data.irep_table_action_svgs.magnifySvg')
+                                        ->label('Magnify Icon SVG')
+                                        ->rows(4)
+                                        ->placeholder('<svg …>…</svg>')
+                                        ->nullable(),
+                                ])->columns(3)->collapsible()->collapsed(),
+
+                            Section::make('Table Columns')->schema([
+                                Repeater::make('data.irep_table_fields')
+                                    ->label('')
+                                    ->schema([
+                                        Select::make('field')
+                                            ->label('Field')
+                                            ->options(self::COMMON_FIELDS)
+                                            ->required(),
+                                        TextInput::make('header')
+                                            ->label('Header Label')
+                                            ->placeholder('e.g. Flat Number')
+                                            ->required(),
+                                        Toggle::make('sortable')
+                                            ->label('Sortable')
+                                            ->default(true),
+                                    ])
+                                    ->columns(3)
+                                    ->reorderable()
+                                    ->reorderableWithDragAndDrop()
+                                    ->addActionLabel('Add Column')
+                                    ->defaultItems(0),
+                            ]),
+
+                        ]),
+
+                        Tab::make('Flat Custom Fields')->schema([
+
+                            Repeater::make('data.irep_flat_custom_fields')
+                                ->label('')
+                                ->schema([
+                                    TextInput::make('key')
+                                        ->label('Field Name')
+                                        ->placeholder('e.g. balcony_area')
+                                        ->required(),
+                                    Select::make('type')
+                                        ->label('Field Type')
+                                        ->options([
+                                            'text'   => 'Text Input',
+                                            'select' => 'Select Dropdown',
+                                        ])
+                                        ->default('text')
+                                        ->live()
+                                        ->required(),
+                                    TagsInput::make('values')
+                                        ->label('Dropdown Options')
+                                        ->placeholder('Add option, press Enter')
+                                        ->hidden(fn(Get $get) => $get('type') !== 'select')
+                                        ->nullable(),
+                                ])
+                                ->columns(3)
+                                ->reorderable()
+                                ->reorderableWithDragAndDrop()
+                                ->addActionLabel('Add Field')
+                                ->defaultItems(0),
+
+                        ]),
+
+                    ])->contained(false),
             ]);
     }
 
     public function save(): void
     {
-        $types = [
-            'irep_table_fields'              => 'json',
-            'irep_table_contact_url'         => 'string',
-            'flatFieldQueryParameter'        => 'string',
-            'irep_table_one_column'          => 'boolean',
-            'irep_table_whole_row_clickable' => 'boolean',
-            'irep_custom_status_types'       => 'json',
-            'irep_table_action_svgs'         => 'json',
+        // Normalize flatFieldQueryParameter before saving
+        $param = $this->data['flatFieldQueryParameter'] ?? 'id';
+        if ($param === 'type.other.*') {
+            $param = 'type.other.' . trim($this->data['typeOtherKey'] ?? '');
+        }
+
+        $settings = [
+            'irep_table_one_column'          => ['value' => $this->data['irep_table_one_column'], 'type' => 'boolean'],
+            'irep_table_whole_row_clickable' => ['value' => $this->data['irep_table_whole_row_clickable'], 'type' => 'boolean'],
+            'irep_table_contact_url'         => ['value' => $this->data['irep_table_contact_url'] ?? '', 'type' => 'string'],
+            'flatFieldQueryParameter'        => ['value' => $param, 'type' => 'string'],
+            'irep_table_action_svgs'         => ['value' => json_encode($this->data['irep_table_action_svgs'] ?? []), 'type' => 'json'],
+            'irep_table_fields'              => ['value' => json_encode($this->data['irep_table_fields'] ?? []), 'type' => 'json'],
+            'irep_flat_custom_fields'        => ['value' => json_encode($this->data['irep_flat_custom_fields'] ?? []), 'type' => 'json'],
         ];
 
-        foreach ($this->data as $key => $value) {
-            $type = $types[$key] ?? 'string';
+        foreach ($settings as $key => $config) {
             Setting::updateOrCreate(
                 ['key' => $key],
-                [
-                    'value' => is_array($value) ? json_encode($value) : (string) $value,
-                    'type'  => $type,
-                ]
+                ['value' => (string) $config['value'], 'type' => $config['type']]
             );
         }
 

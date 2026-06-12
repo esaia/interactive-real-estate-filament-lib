@@ -115,12 +115,11 @@ const updateFloor = async () => {
     const svgElement = floorSvgRef.value?.querySelector("svg");
     const svgBase64 = await toBase64(svgElement);
 
+    const imageData = floor_image.value ?? floorStore.activeFloor?.floor_image ?? null;
     const params: any = {
         title: title.value,
         floor_number: floor_number.value,
-        floor_image:
-            floor_image.value?.[0]?.id ||
-            floorStore.activeFloor?.floor_image?.[0]?.id,
+        floor_image: imageData ? JSON.stringify(imageData) : undefined,
         conf: conf.value?.value,
         floor_id: activeFloor.value?.id,
         polygon_data: activeFloor.value?.polygon_data,
@@ -154,12 +153,11 @@ const updateFloor = async () => {
 };
 
 const createFloor = async () => {
+    const createImageData = floor_image.value ?? props.duplicatedFloor?.floor_image ?? null;
     const params: any = {
         title: title.value,
         floor_number: floor_number.value,
-        floor_image:
-            floor_image.value?.[0]?.id ||
-            props.duplicatedFloor?.floor_image?.[0]?.id,
+        floor_image: createImageData ? JSON.stringify(createImageData) : undefined,
         conf: conf.value?.value,
         project_id: id.value,
     };
@@ -214,6 +212,7 @@ const sedDefaultValues = (source: FloorItem) => {
 };
 
 onMounted(() => {
+    projectStore.activeGroup = null;
     if (activeFloor.value) {
         sedDefaultValues(activeFloor.value);
     } else if (props.duplicatedFloor) {

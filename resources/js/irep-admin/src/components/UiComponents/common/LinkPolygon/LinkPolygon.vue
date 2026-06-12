@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useFloorsStore } from "@/src/stores/useFloors";
 import { storeToRefs } from "pinia";
 import { useProjectStore } from "@/src/stores/useProject";
@@ -31,6 +31,7 @@ const { projectFlats } = storeToRefs(flatsStore);
 const activeTab = ref<"tooltip" | "block" | "flat" | "floor" | "">("");
 const selectedItem = ref<selectDataItem>({ title: "choose", value: "", isLinked: false, type: "" });
 const showModal = ref(true);
+const suppressSave = ref(false);
 
 const { is_360_flow } = storeToRefs(projectsStore);
 
@@ -138,10 +139,37 @@ const flatsSelectData = computed<selectDataItem[]>(() => {
     });
 });
 
+const getSelectDataForTab = (tab: string) => {
+  if (tab === "floor") return floorsSelectData.value;
+  if (tab === "flat") return flatsSelectData.value;
+  if (tab === "block") return blocksSelectData.value;
+  if (tab === "tooltip") return actionSelectData.value;
+  return [];
+};
+
+watch(
+  () => activeTab.value,
+  async (newTab) => {
+    suppressSave.value = true;
+
+    const activePolygon = props.polygon_data?.find((item) => item.key === key);
+
+    if (activePolygon?.type === newTab && activePolygon?.id) {
+      const found = getSelectDataForTab(newTab).find((item) => item.value === activePolygon.id);
+      selectedItem.value = found ?? { title: "choose", value: "", isLinked: false, type: "" };
+    } else {
+      selectedItem.value = { title: "choose", value: "", isLinked: false, type: "" };
+    }
+
+    await nextTick();
+    suppressSave.value = false;
+  }
+);
+
 watch(
   () => selectedItem.value,
   (ns) => {
-    if (!key) return;
+    if (suppressSave.value || !key) return;
 
     if (props.isFloorsCanvas) {
       floorsStore.editpoligonData(key, { id: ns?.value || "", key, type: ns.type || "" });

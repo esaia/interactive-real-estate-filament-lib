@@ -157,6 +157,8 @@ const createBlock = async () => {
 };
 
 onMounted(() => {
+    projectStore.activeGroup = null;
+
     if (activeBlock.value) {
         title.value = activeBlock.value.title;
         conf.value = DEFAULT_CONFIG.find(

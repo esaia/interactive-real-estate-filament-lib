@@ -29,7 +29,11 @@ const flatStore = useFlatsStore();
 
 watch(
   () => showModal.value,
-  (_, os) => {
+  (ns, os) => {
+    if (ns) {
+      projectStore.activeGroup = null;
+    }
+
     const id = Number(projectStore?.id);
 
     if (os === "tooltip") {

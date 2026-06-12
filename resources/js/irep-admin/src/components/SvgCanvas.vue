@@ -932,6 +932,10 @@ const onExternalCanvasReset = () => {
   resetZoom();
 };
 
+const onDeselectEvent = () => {
+  onPathContextMenu(undefined, undefined);
+};
+
 const addListeners = () => {
   if (svgCanvas.value) {
     svgCanvas.value.addEventListener("click", onCanvasClick);
@@ -947,6 +951,7 @@ const addListeners = () => {
   document.addEventListener("keydown", onDocumentKeydown);
   document.addEventListener("keyup", onDocumentKeyUp);
   document.addEventListener("mouseup", onDocumentPanMouseUp);
+  document.addEventListener("ire-canvas-deselect", onDeselectEvent);
 };
 
 const removeListeners = () => {
@@ -964,6 +969,7 @@ const removeListeners = () => {
   document.removeEventListener("keydown", onDocumentKeydown);
   document.removeEventListener("keyup", onDocumentKeyUp);
   document.removeEventListener("mouseup", onDocumentPanMouseUp);
+  document.removeEventListener("ire-canvas-deselect", onDeselectEvent);
 };
 
 const setSvgViewBox = () => {

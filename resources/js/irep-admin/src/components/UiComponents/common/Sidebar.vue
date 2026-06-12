@@ -92,7 +92,7 @@ const unlink = (key: string) => {
 const editOrDuplicateModal = (item: PolygonDataCollection) => {
   switch (item.type) {
     case "floor": {
-      const activeFloor = floorsStore.projectFloors?.find((floor) => floor.id === item.id);
+      const activeFloor = floorsStore.projectFloors?.find((floor) => floor.id === Number(item.id));
 
       if (!activeFloor) return;
 
@@ -104,7 +104,7 @@ const editOrDuplicateModal = (item: PolygonDataCollection) => {
     }
 
     case "block": {
-      const activeBlock = blocksStore.projectBlocks?.find((block) => block.id === item.id);
+      const activeBlock = blocksStore.projectBlocks?.find((block) => block.id === Number(item.id));
 
       if (!activeBlock) return;
 
@@ -114,7 +114,7 @@ const editOrDuplicateModal = (item: PolygonDataCollection) => {
       break;
     }
     case "flat": {
-      const findedActiveFlat = flatStore.projectFlats?.find((flat) => flat.id === item.id);
+      const findedActiveFlat = flatStore.projectFlats?.find((flat) => flat.id === Number(item.id));
 
       if (!findedActiveFlat) return;
 
@@ -124,7 +124,7 @@ const editOrDuplicateModal = (item: PolygonDataCollection) => {
       break;
     }
     case "tooltip": {
-      const findedActiveAction = actionStore.projectActions?.find((action) => action.id === item.id);
+      const findedActiveAction = actionStore.projectActions?.find((action) => action.id === Number(item.id));
       if (!findedActiveAction) return;
       activeAction.value = findedActiveAction;
       showEditModal.value = "tooltip";
@@ -136,6 +136,7 @@ const editOrDuplicateModal = (item: PolygonDataCollection) => {
 };
 
 const editPolygon = (item: PolygonDataCollection) => {
+  emit("setActiveG", null);
   editOrDuplicateModal(item);
 };
 
@@ -158,7 +159,11 @@ watch(
 
 watch(
   () => showEditModal.value,
-  (_, os) => {
+  (ns, os) => {
+    if (ns) {
+      projectStore.activeGroup = null;
+    }
+
     const id = Number(projectStore?.id);
 
     if (os === "tooltip") {
@@ -179,7 +184,7 @@ watch(
 <template>
   <div>
     <div
-      class="custom-scroll absolute left-0 top-0 z-[99] flex h-full max-h-[80vh] flex-col bg-white/90 text-gray-900 transition-all duration-300 ease-out"
+      class="custom-scroll absolute left-0 top-0 z-[10] flex h-full max-h-[80vh] flex-col bg-white/90 text-gray-900 transition-all duration-300 ease-out"
       :class="{
         '-translate-x-full': isClollapsed,
         'translate-x-0': !isClollapsed
@@ -243,7 +248,7 @@ watch(
     <Transition name="fade-in-out">
       <div
         v-if="showInfo"
-        class="absolute right-3 top-3 z-[999] flex max-h-[calc(80vh-1.5rem)] w-[280px] flex-col gap-3 overflow-y-auto rounded-2xl border border-white/70 bg-white/95 p-4 text-gray-600 shadow-md backdrop-blur-sm"
+        class="absolute right-3 top-3 z-[11] flex max-h-[calc(80vh-1.5rem)] w-[280px] flex-col gap-3 overflow-y-auto rounded-2xl border border-white/70 bg-white/95 p-4 text-gray-600 shadow-md backdrop-blur-sm"
       >
         <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Canvas Shortcuts</p>
 
