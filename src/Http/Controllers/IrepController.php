@@ -108,6 +108,7 @@ class IrepController extends Controller
             $project = Project::with('meta')->find($id);
             $data = $project->toArray();
             $data['project_image'] = $this->normalizeProjectImage($project->project_image);
+            $data['images_360'] = $this->normalizeImages360($data['images_360'] ?? []);
             return response()->json(['success' => true, 'data' => $data]);
         }
 
@@ -117,6 +118,18 @@ class IrepController extends Controller
             return $data;
         });
         return response()->json(['success' => true, 'data' => $projects]);
+    }
+
+    private function normalizeImages360(array $images): array
+    {
+        return array_map(function ($image) {
+            return [
+                'img'          => $image['img'] ?? '',
+                'svg'          => $this->decodeSvg($image['svg'] ?? ''),
+                'polygon_data' => $image['polygon_data'] ?? [],
+                'svgRef'       => null,
+            ];
+        }, $images);
     }
 
     private function normalizeProjectImage(mixed $value): array

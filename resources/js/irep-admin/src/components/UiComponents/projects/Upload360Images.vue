@@ -25,11 +25,13 @@ const onLibrarySelect = (selected: imageInterface[]) => {
     img: item.url,
     svg: "",
     polygon_data: [],
-    svgRef: null
+    svgRef: null,
   }));
 
   const combined = [...images_360.value, ...newImages];
-  images_360.value = Array.from(new Map(combined.map((item) => [item.img, item])).values());
+  images_360.value = Array.from(
+    new Map(combined.map((item) => [item.img, item])).values(),
+  );
   projectStore.syncSelected360ImageIdentity();
 };
 
@@ -44,7 +46,10 @@ const sortImagesByName = () => {
   images_360.value = [...images_360.value].sort((a, b) => {
     const aName = (a?.img || "").split("/").pop() || "";
     const bName = (b?.img || "").split("/").pop() || "";
-    return aName.localeCompare(bName, undefined, { sensitivity: "base", numeric: true });
+    return aName.localeCompare(bName, undefined, {
+      sensitivity: "base",
+      numeric: true,
+    });
   });
   projectStore.syncSelected360ImageIdentity();
 };
@@ -58,7 +63,9 @@ const removeAllImages = () => {
 
 const deleteImage = (img: string) => {
   projectStore.persist360SvgFromRef();
-  images_360.value = images_360.value.filter((item) => item && item.img !== img);
+  images_360.value = images_360.value.filter(
+    (item) => item && item.img !== img,
+  );
   projectStore.syncSelected360ImageIdentity();
 };
 </script>
@@ -116,7 +123,11 @@ const deleteImage = (img: string) => {
             @delete="deleteImage(image.img)"
           >
             <div class="flex h-full w-full flex-col justify-between">
-              <img v-if="image?.img" :src="image?.img" class="h-full w-full rounded-md object-cover" />
+              <img
+                v-if="image?.img"
+                :src="image?.img"
+                class="h-full w-full rounded-md object-cover"
+              />
               <span class="mt-0.5 text-xs text-gray-500">{{ index }}</span>
             </div>
           </UploadPreviewCard>

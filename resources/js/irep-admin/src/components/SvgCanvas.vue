@@ -148,6 +148,7 @@ const onCanvasClick = async (event) => {
   if (shapeClosed.value || updateMode.value) return;
 
   const svg = svgCanvas.value.querySelector("svg");
+  if (!svg) return;
   const svgRect = svg.getBoundingClientRect();
   const x = event.clientX - svgRect.left;
   const y = event.clientY - svgRect.top;
@@ -968,6 +969,7 @@ const removeListeners = () => {
 const setSvgViewBox = () => {
   if (!svgCanvas.value) return;
   const svg = svgCanvas.value.querySelector("svg");
+  if (!svg) return;
   const viewBox = svg.viewBox?.baseVal;
   const width = svgCanvas.value.clientWidth;
   const height = svgCanvas.value.clientHeight;
