@@ -757,7 +757,8 @@ class IrepController extends Controller
 
         $w = 0;
         $h = 0;
-        if (!str_contains($file->getMimeType() ?? '', 'pdf')) {
+        $mime = $file->getMimeType() ?? '';
+        if (!str_contains($mime, 'pdf') && !str_contains($mime, 'video')) {
             [$w, $h] = @getimagesize(Storage::disk('public')->path($path)) ?: [0, 0];
         }
 
@@ -788,7 +789,7 @@ class IrepController extends Controller
         }
 
         $allFiles = collect($disk->files($dir))
-            ->filter(fn ($f) => preg_match('/\.(jpe?g|png|gif|webp|svg|pdf)$/i', $f))
+            ->filter(fn ($f) => preg_match('/\.(jpe?g|png|gif|webp|svg|pdf|mp4)$/i', $f))
             ->sortByDesc(fn ($f) => $disk->lastModified($f))
             ->values();
 
@@ -803,7 +804,8 @@ class IrepController extends Controller
             $url  = asset('storage/' . $path);
             $name = basename($path);
             $w = 0; $h = 0;
-            if (!str_ends_with(strtolower($name), '.pdf')) {
+            $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+            if (!in_array($ext, ['pdf', 'mp4'])) {
                 [$w, $h] = @getimagesize($disk->path($path)) ?: [0, 0];
             }
             $sizeEntry = ['url' => $url, 'width' => $w, 'height' => $h, 'orientation' => $w >= $h ? 'landscape' : 'portrait'];

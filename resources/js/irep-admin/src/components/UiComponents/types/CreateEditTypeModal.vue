@@ -278,8 +278,8 @@ onMounted(async () => {
       <section class="px-5 py-4">
         <p class="mb-3 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Images</p>
         <div class="flex flex-col gap-3">
-          <UploadImg v-model="obj.image_2d" title="Image 2D" resolution="400×400" :example-image="PLUGIN_ASSETS_PATH + 'flat_2d.webp'" multiple />
-          <UploadImg v-model="obj.image_3d" title="Image 3D" resolution="400×400" :example-image="PLUGIN_ASSETS_PATH + 'flat_3d.webp'" multiple />
+          <UploadImg v-model="obj.image_2d" title="Image 2D" resolution="400×400" :example-image="PLUGIN_ASSETS_PATH + 'flat_2d.webp'" multiple allow-youtube />
+          <UploadImg v-model="obj.image_3d" title="Image 3D" resolution="400×400" :example-image="PLUGIN_ASSETS_PATH + 'flat_3d.webp'" multiple allow-youtube />
         </div>
       </section>
 

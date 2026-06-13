@@ -107,19 +107,25 @@ function onFilePick(e: Event) {
 function onDrop(e: DragEvent) {
   isDragging.value = false;
   const files = Array.from(e.dataTransfer?.files ?? []).filter(f =>
-    f.type.startsWith("image/") || f.type === "application/pdf"
+    f.type.startsWith("image/") || f.type === "application/pdf" || f.type === "video/mp4"
   );
   addToQueue(files);
 }
 
 function addToQueue(files: File[]) {
   files.forEach(file => {
+    if (file.type === "video/mp4") {
+      uploadQueue.value.push({ file, status: "pending", preview: URL.createObjectURL(file), isVideo: true });
+      processQueue();
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (ev) => {
       uploadQueue.value.push({
         file,
         status: "pending",
         preview: file.type === "application/pdf" ? "" : (ev.target?.result as string),
+        isVideo: false,
       });
       processQueue();
     };
@@ -284,7 +290,16 @@ function onKeydown(e: KeyboardEvent) {
                     @mouseleave="hoveredId = null"
                   >
                     <div class="ml-thumb-img">
-                      <img v-if="!img.filename.match(/\.pdf$/i)" :src="img.url" loading="lazy" />
+                      <img v-if="!img.filename.match(/\.(pdf|mp4)$/i)" :src="img.url" loading="lazy" />
+                      <div v-else-if="img.filename.match(/\.mp4$/i)" class="ml-thumb-video-wrap">
+                        <video :src="img.url" preload="metadata" class="ml-thumb-video" />
+                        <div class="ml-thumb-play">
+                          <svg viewBox="0 0 24 24" fill="currentColor" class="ml-thumb-play-icon">
+                            <circle cx="12" cy="12" r="10" fill="rgba(0,0,0,0.5)" />
+                            <polygon points="10,8 16,12 10,16" fill="white" />
+                          </svg>
+                        </div>
+                      </div>
                       <div v-else class="ml-thumb-pdf">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke-linecap="round" />
@@ -331,14 +346,14 @@ function onKeydown(e: KeyboardEvent) {
                       <path d="M6 26a6 6 0 0 1 0-12h1.5a9 9 0 0 1 17-4A7 7 0 1 1 40 22" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                     <p class="ml-drop-title">Drop files here or click to browse</p>
-                    <p class="ml-drop-sub">Supports JPG, PNG, GIF, WebP, SVG, PDF</p>
+                    <p class="ml-drop-sub">Supports JPG, PNG, GIF, WebP, SVG, PDF, MP4</p>
                   </div>
                 </div>
 
                 <input
                   ref="fileInput"
                   type="file"
-                  accept="image/*,application/pdf"
+                  accept="image/*,application/pdf,video/mp4"
                   :multiple="multiple"
                   class="sr-only"
                   @change="onFilePick"
@@ -353,7 +368,8 @@ function onKeydown(e: KeyboardEvent) {
                   <div class="ml-queue-list">
                     <div v-for="(item, i) in uploadQueue" :key="i" class="ml-queue-item" :class="item.status">
                       <div class="ml-qi-preview">
-                        <img v-if="item.preview" :src="item.preview" />
+                        <video v-if="item.isVideo && item.preview" :src="item.preview" preload="metadata" class="ml-qi-video" />
+                        <img v-else-if="item.preview" :src="item.preview" />
                         <div v-else class="ml-qi-pdf">
                           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
                             <path d="M9 2H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6z" />
@@ -797,7 +813,12 @@ function onKeydown(e: KeyboardEvent) {
   background: rgba(255,255,255,0.06);
   flex-shrink: 0;
 }
+.ml-qi-video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .ml-qi-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ml-thumb-video-wrap { position: relative; width: 100%; height: 100%; }
+.ml-thumb-video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ml-thumb-play { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.ml-thumb-play-icon { width: 28px; height: 28px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)); }
 
 .ml-qi-pdf {
   width: 100%;

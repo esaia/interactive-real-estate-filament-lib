@@ -330,7 +330,7 @@ onMounted(async () => {
     <Loading />
   </div>
 
-  <form v-else class="h-full w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" @submit.prevent="submitForm">
+  <form v-else class="flex h-full w-full flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" @submit.prevent="submitForm">
 
     <!-- Header -->
     <div class="border-b border-gray-100 bg-gray-50 px-5 py-3.5">
@@ -351,7 +351,7 @@ onMounted(async () => {
       </div>
     </div>
 
-    <div class="flex flex-col gap-0 divide-y divide-gray-100">
+    <div class="flex flex-1 flex-col divide-y divide-gray-100 overflow-y-auto">
 
       <!-- Identity & Location -->
       <section class="px-5 py-4">
@@ -500,8 +500,8 @@ onMounted(async () => {
           </div>
 
           <div class="flex flex-col gap-3 border-t border-gray-200 pt-3">
-            <UploadImg v-model="obj.type.image_2d" title="Image 2D" resolution="400×400" :example-image="PLUGIN_ASSETS_PATH + 'flat_2d.webp'" multiple />
-            <UploadImg v-model="obj.type.image_3d" title="Image 3D" resolution="400×400" :example-image="PLUGIN_ASSETS_PATH + 'flat_3d.webp'" multiple />
+            <UploadImg v-model="obj.type.image_2d" title="Image 2D" resolution="400×400" :example-image="PLUGIN_ASSETS_PATH + 'flat_2d.webp'" multiple allow-youtube />
+            <UploadImg v-model="obj.type.image_3d" title="Image 3D" resolution="400×400" :example-image="PLUGIN_ASSETS_PATH + 'flat_3d.webp'" multiple allow-youtube />
           </div>
         </div>
       </section>
@@ -509,7 +509,7 @@ onMounted(async () => {
       <!-- Attachments -->
       <section class="px-5 py-4">
         <p class="mb-3 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Attachments</p>
-        <UploadImg v-model="obj.files" title="Upload PDF / file" />
+        <UploadImg v-model="obj.files" title="Upload PDF / file" multiple />
       </section>
 
       <!-- Actions -->
