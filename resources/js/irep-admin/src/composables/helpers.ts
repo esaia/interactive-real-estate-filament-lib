@@ -76,14 +76,14 @@ export const getFloorTitleById = (id: number) => {
   const floorsStore = useFloorsStore();
 
   if (!id) return;
-  return floorsStore.projectFloors?.find((floor) => floor.id === id?.toString())?.floor_number;
+  return floorsStore.projectFloors?.find((floor) => String(floor.id) === String(id))?.floor_number;
 };
 
 export const getBlockTitleById = (id: number) => {
   const blocksStore = useBlocksStore();
 
   if (!id) return;
-  return blocksStore.projectBlocks?.find((block) => block.id === id?.toString())?.title;
+  return blocksStore.projectBlocks?.find((block) => String(block.id) === String(id))?.title;
 };
 
 export function showToast(type: "success" | "error", message: string) {

@@ -193,91 +193,101 @@ onMounted(async () => {
 </script>
 
 <template>
-  <form class="h-fu' w-full rounded-md border border-gray-200 shadow-sm" @submit.prevent="submitForm">
-    <div class="flex w-full items-center justify-center bg-white p-3">
-      <h2 class="!text-lg text-primary">
-        {{ activeType ? "Editing type with id - " : "Add type" }}
+  <form class="h-full w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" @submit.prevent="submitForm">
 
-        <span v-if="activeType?.id" class="text-red-600"> {{ activeType?.id }} </span>
+    <!-- Header -->
+    <div class="border-b border-gray-100 bg-gray-50 px-5 py-3.5">
+      <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+        {{ activeType ? "Editing type" : "New type" }}
+      </p>
+      <h2 class="mt-0.5 text-base font-semibold text-gray-900">
+        {{ activeType ? `#${activeType.id}` : "Add type" }}
+        <span v-if="activeType?.title" class="ml-1 text-gray-500">— {{ activeType.title }}</span>
       </h2>
     </div>
 
-    <div class="flex flex-col items-center gap-3 p-3">
-      <Input v-model="obj.title" placeholder="corner apartment" label="Type title" required />
+    <div class="flex flex-col gap-0 divide-y divide-gray-100">
 
-      <TextArea
-        v-model="obj.teaser"
-        placeholder="Experience the perfect blend of comfort, style, and stunning views!"
-        label="Type teaser"
-      />
+      <!-- Basic Info -->
+      <section class="px-5 py-4">
+        <p class="mb-3 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Basic info</p>
+        <div class="flex flex-col gap-3">
+          <Input v-model="obj.title" placeholder="Corner apartment" label="Type title" required />
+          <TextArea
+            v-model="obj.teaser"
+            placeholder="Experience the perfect blend of comfort, style, and stunning views!"
+            label="Teaser"
+          />
+          <div class="grid grid-cols-2 gap-3">
+            <Input v-model="obj.area_m2" placeholder="62.5" label="Area m²" type="number" is-float required />
+            <Input v-model="obj.rooms_count" placeholder="3" label="Rooms count" type="number" is-float />
+          </div>
+        </div>
+      </section>
 
-      <Input v-model="obj.area_m2" placeholder="62.5" label="area m²" type="number" is-float required />
-      <Input v-model="obj.rooms_count" placeholder="3" label="Rooms count" type="number" is-float />
-
-      <div class="w-full space-y-2">
-        <template v-if="fields.length">
-          <p>Custom Fields</p>
-          <div v-for="field in fields" class="flex w-full items-end justify-center gap-2">
-            <Input v-model="field.key" placeholder="" label="Key" disabled class="w-full flex-1" />
-
+      <!-- Custom Fields (from global settings) -->
+      <section v-if="fields.length" class="px-5 py-4">
+        <p class="mb-3 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Custom fields</p>
+        <div class="flex flex-col gap-2">
+          <div v-for="field in fields" :key="field.key" class="flex items-end gap-2">
+            <Input v-model="field.key" placeholder="" label="Key" disabled class="flex-1" />
             <div v-if="field?.type === 'select'" class="flex-1">
-              <select v-model="field.value" :name="field.key" class="w-full !border !border-gray-200 !py-[1px]">
-                <option :value="''">empty</option>
+              <select v-model="field.value" :name="field.key" class="w-full rounded border border-gray-300 bg-gray-100 px-2.5 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-300">
+                <option :value="''">—</option>
                 <option v-for="value in field.values" :key="value" :value="value">{{ value }}</option>
               </select>
             </div>
-
-            <Input v-else v-model="field.value as any" placeholder="" label="Value" class="w-full flex-1" />
+            <Input v-else v-model="field.value as any" placeholder="" label="Value" class="flex-1" />
           </div>
-        </template>
+        </div>
+      </section>
 
-        <button class="hover:underline" @click.prevent="addOther">Add other type</button>
-
-        <draggable v-model="obj.other" item-key="_id" handle=".drag-handle" ghost-class="opacity-50" class="space-y-4">
+      <!-- Extra Fields -->
+      <section class="px-5 py-4">
+        <p class="mb-3 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Extra fields</p>
+        <draggable v-model="obj.other" item-key="_id" handle=".drag-handle" ghost-class="opacity-50" class="flex flex-col gap-2">
           <template #item="{ element: other, index: i }">
-            <div class="flex w-full items-end justify-center gap-2">
-              <button
-                class="drag-handle cursor-grab text-gray-500 hover:text-gray-500 focus:outline-none"
-                title="Drag to reorder"
-              >
-                <DragIcon class="size-5" />
-              </button>
-
-              <button
-                v-if="!other.type"
-                type="button"
-                class="shrink-0 rounded-md p-2 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
-                aria-label="Remove custom field"
-                @click.prevent="removeOther(i)"
-              >
-                <Delete class="h-5 w-5" />
-              </button>
-
-              <Input v-model="other.key" placeholder="" label="Key" class="w-full flex-1" />
-
-              <Input v-model="other.value" placeholder="" label="Value" class="w-full flex-1" />
+            <div class="flex items-end gap-2">
+              <div class="flex items-center gap-1 mb-0.5">
+                <button class="drag-handle cursor-grab text-gray-400 hover:text-gray-600 focus:outline-none" title="Drag">
+                  <DragIcon class="size-4" />
+                </button>
+                <button
+                  v-if="!other.type"
+                  type="button"
+                  class="shrink-0 rounded p-1.5 text-gray-400 transition hover:bg-red-50 hover:text-red-500"
+                  @click.prevent="removeOther(i)"
+                >
+                  <Delete class="h-4 w-4" />
+                </button>
+              </div>
+              <Input v-model="other.key" placeholder="Key" label="Key" class="flex-1" />
+              <Input v-model="other.value" placeholder="Value" label="Value" class="flex-1" />
             </div>
           </template>
         </draggable>
+        <button
+          class="mt-1 text-xs font-medium text-gray-500 transition hover:text-gray-800 hover:underline"
+          @click.prevent="addOther"
+        >
+          + Add field
+        </button>
+      </section>
+
+      <!-- Images -->
+      <section class="px-5 py-4">
+        <p class="mb-3 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Images</p>
+        <div class="flex flex-col gap-3">
+          <UploadImg v-model="obj.image_2d" title="Image 2D" resolution="400×400" :example-image="PLUGIN_ASSETS_PATH + 'flat_2d.webp'" multiple />
+          <UploadImg v-model="obj.image_3d" title="Image 3D" resolution="400×400" :example-image="PLUGIN_ASSETS_PATH + 'flat_3d.webp'" multiple />
+        </div>
+      </section>
+
+      <!-- Actions -->
+      <div class="bg-gray-50 px-5 py-4">
+        <Button type="submit" :title="activeType ? 'Save changes' : 'Add type'" :loading="loading" />
       </div>
 
-      <UploadImg
-        v-model="obj.image_2d"
-        title="upload image 2d"
-        resolution="400 x 400"
-        :example-image="PLUGIN_ASSETS_PATH + 'flat_2d.webp'"
-        multiple
-      />
-      <UploadImg
-        v-model="obj.image_3d"
-        title="upload image 3d"
-        resolution="400 x 400"
-        :example-image="PLUGIN_ASSETS_PATH + 'flat_3d.webp'"
-        multiple
-      />
-      <!-- <UploadImg v-model="obj.gallery" title="upload gallery" multiple /> -->
-
-      <Button type="submit" :title="activeType ? 'Edit type' : 'Add type'" :loading="loading" />
     </div>
   </form>
 </template>

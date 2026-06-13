@@ -47,11 +47,11 @@ const loading = ref(false);
 
 const defaultBlockId = computed(() => {
     if (activeBlock.value) {
-        return activeBlock.value?.id;
+        return String(activeBlock.value.id);
     } else if (activeFloor.value?.block_id) {
-        return activeFloor.value?.block_id.toString();
+        return String(activeFloor.value.block_id);
     } else {
-        return "null";
+        return "all";
     }
 });
 
@@ -203,7 +203,7 @@ const sedDefaultValues = (source: FloorItem) => {
         value: "",
     };
     block.value = blockSelectData.value.find(
-        (item) => item.value === source.block_id?.toString(),
+        (item) => String(item.value) === String(source.block_id),
     ) || {
         title: "choose",
         value: "",

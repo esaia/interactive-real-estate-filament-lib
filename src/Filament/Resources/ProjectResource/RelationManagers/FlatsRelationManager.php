@@ -14,6 +14,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Schema;
@@ -89,8 +90,48 @@ class FlatsRelationManager extends RelationManager
                         ])
                         ->collapsible()->nullable()->columnSpanFull(),
                 ]),
+
+                Tab::make('Extra Fields')->schema($this->buildExtraFieldComponents()),
             ])->columnSpanFull(),
         ]);
+    }
+
+    private function buildExtraFieldComponents(): array
+    {
+        $customFields = Setting::get('irep_flat_custom_fields', []);
+
+        if (empty($customFields)) {
+            return [
+                Section::make('Extra Fields')
+                    ->schema([\Filament\Schemas\Components\Text::make('No custom fields defined. Add them in Global Settings → Flat Custom Fields.')])
+                    ->columnSpanFull(),
+            ];
+        }
+
+        $inputs = array_values(array_map(function (array $field) {
+            $key   = $field['key'] ?? '';
+            $label = ucwords(str_replace(['_', '-'], ' ', $key));
+
+            if (($field['type'] ?? 'text') === 'select') {
+                $options = array_combine($field['values'] ?? [], $field['values'] ?? []);
+
+                return Select::make('custom_fields.' . $key)
+                    ->label($label)
+                    ->options($options)
+                    ->nullable();
+            }
+
+            return TextInput::make('custom_fields.' . $key)
+                ->label($label)
+                ->nullable();
+        }, array_values($customFields)));
+
+        return [
+            Section::make('Extra Fields')
+                ->schema($inputs)
+                ->columns(2)
+                ->columnSpanFull(),
+        ];
     }
 
     public function table(Table $table): Table

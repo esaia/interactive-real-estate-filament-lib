@@ -113,7 +113,7 @@ const floorsNumberData = computed(() => {
         return !i.block_id;
       }
     })
-    ?.sort((a, b) => a.floor_number.localeCompare(b.floor_number))
+    ?.sort((a, b) => Number(a.floor_number) - Number(b.floor_number))
     ?.map((floor) => {
       return {
         title: `id: ${floor.id} - ${floor.floor_number} ${floor?.block_id ? " | block (" + getBlockTitleById(floor.block_id) + ")" : ""}`,
@@ -237,7 +237,7 @@ const createFlat = async (params: any) => {
 };
 
 const showEditTypeModal = () => {
-  activeType.value = projectTypes.value?.find((type) => type.id === obj.type_id?.value) || null;
+  activeType.value = projectTypes.value?.find((type) => String(type.id) === String(obj.type_id?.value)) || null;
 
   if (activeType.value) {
     showTypeModal.value = true;
@@ -284,9 +284,9 @@ onMounted(async () => {
     obj.request_price = typeInstance.request_price ?? "";
     obj.price = typeInstance.price ?? "";
     obj.offer_price = typeInstance.offer_price ?? "";
-    obj.type_id = typesData.value.find((type) => type.value === typeInstance.type_id) ?? null;
-    obj.block_id = blockSelectData.value.find((block) => block.value === typeInstance.block_id) ?? null;
-    obj.floor_id = floorsNumberData.value.find((floor) => floor.value === typeInstance.floor_id) ?? null;
+    obj.type_id = typesData.value.find((type) => String(type.value) === String(typeInstance.type_id)) ?? null;
+    obj.block_id = blockSelectData.value.find((block) => String(block.value) === String(typeInstance.block_id)) ?? null;
+    obj.floor_id = floorsNumberData.value.find((floor) => String(floor.value) === String(typeInstance.floor_id)) ?? null;
     obj.click_action = typeInstance?.click_action ?? "";
     obj.follow_link = typeInstance?.follow_link ?? { link: "", target: false };
     obj.files = typeInstance?.files || [];
@@ -326,175 +326,208 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div v-if="loading">
+  <div v-if="loading" class="flex min-h-[200px] items-center justify-center">
     <Loading />
   </div>
 
-  <form v-else class="h-full w-full rounded-md border border-gray-200 shadow-sm" @submit.prevent="submitForm">
-    <div class="flex w-full items-center justify-center bg-gray-100 p-3">
-      <h2 class="!text-lg text-gray-900">
-        {{ activeFlat ? "Editing flat with ID - " : "Add flat" }}
+  <form v-else class="h-full w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" @submit.prevent="submitForm">
 
-        <span v-if="activeFlat?.id" class="text-red-600"> {{ activeFlat?.id }} </span>
-      </h2>
-    </div>
-
-    <div class="flex flex-col items-center gap-3 p-3">
-      <div v-if="activeFlat" class="flex w-full items-center gap-2">
-        <p class="min-w-max text-gray-600">Is active</p>
-        <Toggle v-model="obj.is_active" :disabled="!is_gold" />
-      </div>
-
-      <Input v-model="obj.flat_number" placeholder="flat-57" label="Flat number/name" required />
-
-      <Select v-model="obj.block_id" :data="blockSelectData" label="select block" clearable />
-
-      <Select v-if="floorsNumberData" v-model="obj.floor_id" :data="floorsNumberData" label="Floor number" clearable />
-
-      <Checkbox v-model="obj.request_price" title="Request Price" class="mt-2 w-full" />
-
-      <Input v-if="!obj.request_price" v-model="obj.price" type="number" is-float placeholder="60000" label="Price" />
-      <Input
-        v-if="!obj.request_price"
-        v-model="obj.offer_price"
-        type="number"
-        is-float
-        placeholder="58000"
-        label="Offer price"
-      />
-
-      <div v-if="activeFlat && hasPriceHistoryAddon()" class="w-fit">
-        <Button type="button" outlined title="Manage price history" @click="showPriceHistoryModal = true" />
-      </div>
-
-      <StatusSelect v-model="obj.conf" label="Status" clearable />
-
-      <div class="w-full">
-        <p class="label">Action on click:</p>
-        <div class="flex items-center gap-3">
-          <Radio v-model="obj.click_action" label="Open flat modal" name="flat_click_action" value="" />
-          <Radio v-model="obj.click_action" label="Follow link" name="flat_click_action" value="follow_link" />
+    <!-- Header -->
+    <div class="border-b border-gray-100 bg-gray-50 px-5 py-3.5">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+            {{ activeFlat ? "Editing flat" : "New flat" }}
+          </p>
+          <h2 class="mt-0.5 text-base font-semibold text-gray-900">
+            {{ activeFlat ? `#${activeFlat.id}` : "Add flat" }}
+            <span v-if="activeFlat?.flat_number" class="ml-1 text-gray-500">— {{ activeFlat.flat_number }}</span>
+          </h2>
+        </div>
+        <div v-if="activeFlat" class="flex items-center gap-2">
+          <span class="text-xs text-gray-500">Active</span>
+          <Toggle v-model="obj.is_active" :disabled="!is_gold" />
         </div>
       </div>
+    </div>
 
-      <div v-if="obj.click_action === 'follow_link'" class="w-full">
-        <Input v-model="obj.follow_link.link" placeholder="https://example.com" label="Link" />
+    <div class="flex flex-col gap-0 divide-y divide-gray-100">
 
-        <Checkbox v-model="obj.follow_link.target" title="Open in new window" class="mt-2" />
-      </div>
+      <!-- Identity & Location -->
+      <section class="px-5 py-4">
+        <p class="mb-3 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Identity & Location</p>
+        <div class="flex flex-col gap-3">
+          <Input v-model="obj.flat_number" placeholder="flat-57" label="Flat number / name" required />
+          <div class="grid grid-cols-2 gap-3">
+            <Select v-model="obj.block_id" :data="blockSelectData" label="Block" clearable />
+            <Select v-if="floorsNumberData" v-model="obj.floor_id" :data="floorsNumberData" label="Floor" clearable />
+          </div>
+        </div>
+      </section>
 
-      <div class="my-2 h-1 w-full bg-gray-100" />
+      <!-- Pricing -->
+      <section class="px-5 py-4">
+        <p class="mb-3 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Pricing</p>
+        <div class="flex flex-col gap-3">
+          <Checkbox v-model="obj.request_price" title="Request Price (hide price, show inquiry)" />
+          <template v-if="!obj.request_price">
+            <div class="grid grid-cols-2 gap-3">
+              <Input v-model="obj.price" type="number" is-float placeholder="60 000" label="Price" />
+              <Input v-model="obj.offer_price" type="number" is-float placeholder="58 000" label="Offer price" />
+            </div>
+          </template>
+          <div v-if="activeFlat && hasPriceHistoryAddon()" class="pt-1">
+            <button
+              type="button"
+              class="inline-flex items-center gap-1.5 rounded border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:border-gray-400 hover:text-gray-900"
+              @click="showPriceHistoryModal = true"
+            >
+              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              Price history
+            </button>
+          </div>
+        </div>
+      </section>
 
-      <div class="flex items-center gap-3">
-        <Radio v-model="useType" label="Choose type" name="useTypeRadio" value="true" />
-        <Radio v-model="useType" label="Manually" name="useTypeRadio" value="false" />
-      </div>
+      <!-- Status & Behaviour -->
+      <section class="px-5 py-4">
+        <p class="mb-3 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Status & Behaviour</p>
+        <div class="flex flex-col gap-3">
+          <StatusSelect v-model="obj.conf" label="Status" clearable />
+          <div>
+            <p class="mb-2 text-[11px] font-medium uppercase tracking-wide text-gray-500">On click</p>
+            <div class="flex items-center gap-4">
+              <Radio v-model="obj.click_action" label="Open flat modal" name="flat_click_action" value="" />
+              <Radio v-model="obj.click_action" label="Follow link" name="flat_click_action" value="follow_link" />
+            </div>
+          </div>
+          <template v-if="obj.click_action === 'follow_link'">
+            <Input v-model="obj.follow_link.link" placeholder="https://example.com" label="URL" />
+            <Checkbox v-model="obj.follow_link.target" title="Open in new tab" />
+          </template>
+        </div>
+      </section>
 
-      <div v-if="useType === 'true'">
-        <Select
-          v-model="obj.type_id"
-          :data="typesData"
-          label="Type"
-          description="For apartments of the same type, (For example, apartments that have the same area M2, number of rooms, arrangement of rooms) you need to add an entry in the types and then select from this list, Because the same records should not be created many times"
-          required
-        />
+      <!-- Type -->
+      <section class="px-5 py-4">
+        <div class="mb-3 flex items-center justify-between">
+          <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Type configuration</p>
+          <div class="flex items-center gap-3">
+            <Radio v-model="useType" label="Choose type" name="useTypeRadio" value="true" />
+            <Radio v-model="useType" label="Manually" name="useTypeRadio" value="false" />
+          </div>
+        </div>
 
-        <Button v-if="obj.type_id" class="!p-1" title="edit type" outlined @click="showEditTypeModal" />
-      </div>
+        <!-- Choose from list -->
+        <div v-if="useType === 'true'" class="flex flex-col gap-2">
+          <Select
+            v-model="obj.type_id"
+            :data="typesData"
+            label="Select type"
+            description="Group apartments of the same layout/area under one type to avoid duplicate records."
+            required
+          />
+          <div v-if="obj.type_id">
+            <button
+              type="button"
+              class="inline-flex items-center gap-1.5 rounded border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:border-gray-400 hover:text-gray-900"
+              @click="showEditTypeModal"
+            >
+              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+              Edit selected type
+            </button>
+          </div>
+        </div>
 
-      <div v-else class="flex w-full flex-col gap-4 rounded-md border border-gray-200 p-3">
-        <Input v-model="obj.type.title" placeholder="corner apartment" label="Type title" />
-        <TextArea
-          v-model="obj.type.teaser"
-          placeholder="Experience the perfect blend of comfort, style, and stunning views!"
-          label="Type teaser"
-        />
+        <!-- Manual entry -->
+        <div v-else class="flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+          <Input v-model="obj.type.title" placeholder="Corner apartment" label="Type title" />
+          <TextArea
+            v-model="obj.type.teaser"
+            placeholder="Experience the perfect blend of comfort, style, and stunning views!"
+            label="Teaser"
+          />
+          <div class="grid grid-cols-2 gap-3">
+            <Input v-model="obj.type.area_m2" placeholder="62.5" label="Area m²" is-float type="number" />
+            <Input v-model="obj.type.rooms_count" placeholder="3" label="Rooms" is-float type="number" />
+          </div>
 
-        <Input v-model="obj.type.area_m2" placeholder="62.5" label="area m²" is-float type="number" />
-        <Input v-model="obj.type.rooms_count" placeholder="3" label="Rooms count" is-float type="number" />
-
-        <div class="w-full space-y-2">
           <template v-if="fields.length">
-            <p>Custom Fields</p>
-
-            <div v-for="field in fields" class="flex w-full items-end justify-center gap-2">
-              <Input v-model="field.key" placeholder="" label="Key" disabled class="w-full flex-1" />
-
-              <div v-if="field?.type === 'select'" class="flex-1">
-                <select v-model="field.value" :name="field.key" class="w-full !border !border-gray-300 !bg-gray-100 !py-[1px] !text-gray-900">
-                  <option :value="''">empty</option>
-                  <option v-for="value in field.values" :key="value" :value="value">{{ value }}</option>
-                </select>
+            <div class="border-t border-gray-200 pt-3">
+              <p class="mb-2 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Custom fields</p>
+              <div v-for="field in fields" class="mb-2 flex items-end gap-2">
+                <Input v-model="field.key" placeholder="" label="Key" disabled class="flex-1" />
+                <div v-if="field?.type === 'select'" class="flex-1">
+                  <select v-model="field.value" :name="field.key" class="w-full rounded border border-gray-300 bg-gray-100 px-2.5 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-300">
+                    <option :value="''">—</option>
+                    <option v-for="value in field.values" :key="value" :value="value">{{ value }}</option>
+                  </select>
+                </div>
+                <Input v-else v-model="field.value as any" placeholder="" label="Value" class="flex-1" />
               </div>
-
-              <Input v-else v-model="field.value as any" placeholder="" label="Value" class="w-full flex-1" />
             </div>
           </template>
 
-          <button class="text-gray-500 hover:text-gray-800 hover:underline" @click.prevent="addOther">Add other type</button>
+          <div class="border-t border-gray-200 pt-3">
+            <p class="mb-2 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Extra fields</p>
+            <draggable v-model="obj.type.other" item-key="_id" handle=".drag-handle" ghost-class="opacity-50" class="flex flex-col gap-2">
+              <template #item="{ element: other, index: i }">
+                <div class="flex items-end gap-2">
+                  <div class="flex items-center gap-1 mb-0.5">
+                    <button class="drag-handle cursor-grab text-gray-400 hover:text-gray-600 focus:outline-none" title="Drag">
+                      <DragIcon class="size-4" />
+                    </button>
+                    <button
+                      v-if="!other.type"
+                      type="button"
+                      class="shrink-0 rounded p-1.5 text-gray-400 transition hover:bg-red-50 hover:text-red-500"
+                      @click.prevent="removeOther(i)"
+                    >
+                      <Delete class="h-4 w-4" />
+                    </button>
+                  </div>
+                  <Input v-model="other.key" placeholder="Key" label="Key" class="flex-1" />
+                  <Input v-model="other.value" placeholder="Value" label="Value" class="flex-1" />
+                </div>
+              </template>
+            </draggable>
+            <button
+              class="mt-1 text-xs font-medium text-gray-500 transition hover:text-gray-800 hover:underline"
+              @click.prevent="addOther"
+            >
+              + Add field
+            </button>
+          </div>
 
-          <draggable
-            v-model="obj.type.other"
-            item-key="_id"
-            handle=".drag-handle"
-            ghost-class="opacity-50"
-            class="space-y-4"
-          >
-            <template #item="{ element: other, index: i }">
-              <div class="flex w-full items-end justify-center gap-2">
-                <button
-                  class="drag-handle cursor-grab text-gray-500 hover:text-gray-500 focus:outline-none"
-                  title="Drag to reorder"
-                >
-                  <DragIcon class="size-5" />
-                </button>
-
-                <button
-                  v-if="!other.type"
-                  type="button"
-                  class="shrink-0 rounded-md p-2 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
-                  aria-label="Remove custom field"
-                  @click.prevent="removeOther(i)"
-                >
-                  <Delete class="h-5 w-5" />
-                </button>
-
-                <Input v-model="other.key" placeholder="" label="Key" class="w-full flex-1" />
-
-                <Input v-model="other.value" placeholder="" label="Value" class="w-full flex-1" />
-              </div>
-            </template>
-          </draggable>
+          <div class="flex flex-col gap-3 border-t border-gray-200 pt-3">
+            <UploadImg v-model="obj.type.image_2d" title="Image 2D" resolution="400×400" :example-image="PLUGIN_ASSETS_PATH + 'flat_2d.webp'" multiple />
+            <UploadImg v-model="obj.type.image_3d" title="Image 3D" resolution="400×400" :example-image="PLUGIN_ASSETS_PATH + 'flat_3d.webp'" multiple />
+          </div>
         </div>
+      </section>
 
-        <UploadImg
-          v-model="obj.type.image_2d"
-          title="upload image 2d"
-          resolution="400 x 400"
-          :example-image="PLUGIN_ASSETS_PATH + 'flat_2d.webp'"
-          multiple
-        />
-        <UploadImg
-          v-model="obj.type.image_3d"
-          title="upload image 3d"
-          resolution="400 x 400"
-          :example-image="PLUGIN_ASSETS_PATH + 'flat_3d.webp'"
-          multiple
-        />
+      <!-- Attachments -->
+      <section class="px-5 py-4">
+        <p class="mb-3 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Attachments</p>
+        <UploadImg v-model="obj.files" title="Upload PDF / file" />
+      </section>
+
+      <!-- Actions -->
+      <div class="bg-gray-50 px-5 py-4">
+        <template v-if="activeFlat">
+          <Button type="submit" title="Save changes" :loading="loading" />
+        </template>
+        <template v-else-if="!is_premium && flatStore.projectFlats && flatStore.projectFlats?.length >= 25">
+          <div @click="pushToPlansPage()">
+            <Button type="submit" title="Upgrade to add more flats" :disabled="true" />
+          </div>
+          <p class="mt-2 text-xs text-gray-500">Free plan is limited to 25 flats.</p>
+        </template>
+        <template v-else>
+          <Button type="submit" title="Add flat" :loading="loading" />
+        </template>
       </div>
 
-      <UploadImg v-model="obj.files" title="upload PDF file" />
-
-      <Button v-if="activeFlat" type="submit" title="Edit flat" :loading="loading" />
-
-      <div v-else-if="!is_premium && flatStore.projectFlats && flatStore.projectFlats?.length >= 25" class="w-full">
-        <div @click="pushToPlansPage()">
-          <Button type="submit" title="Upgrade to add more flats" :disabled="true" />
-        </div>
-        <p class="mt-2">You can add max 25 flat with free plan</p>
-      </div>
-
-      <Button v-else type="submit" :title="activeFlat ? 'Edit flat' : 'Add flat'" :loading="loading" />
     </div>
   </form>
 

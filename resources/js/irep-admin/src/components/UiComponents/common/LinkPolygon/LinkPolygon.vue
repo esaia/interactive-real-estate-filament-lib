@@ -80,10 +80,10 @@ const floorsSelectData = computed<selectDataItem[]>(() => {
       // }
       return floor;
     })
-    ?.sort((a, b) => a.floor_number.localeCompare(b.floor_number))
+    ?.sort((a, b) => Number(a.floor_number) - Number(b.floor_number))
     ?.map((item) => {
       const isLinked = props.polygon_data?.some((polygon) => polygon.id == item.id && polygon.type === "floor");
-      const block = projectBlocks.value?.find((block) => block.id === item?.block_id?.toString());
+      const block = projectBlocks.value?.find((block) => String(block.id) === String(item?.block_id));
 
       return {
         title: `id: ${item.id} | floor #${item.floor_number.toString()} ${block ? " | " + block?.title : ""} ${item.conf ? " | " + item.conf : ""}`,
@@ -112,16 +112,16 @@ const flatsSelectData = computed<selectDataItem[]>(() => {
         let isSameBlock = false;
 
         if (activeBlock.value?.id) {
-          isSameBlock = flat.block_id === activeBlock.value?.id?.toString();
+          isSameBlock = String(flat.block_id) === String(activeBlock.value.id);
         } else if (flat.block_id) {
-          isSameBlock = flat.block_id === activeFloor.value.block_id?.toString();
+          isSameBlock = String(flat.block_id) === String(activeFloor.value.block_id);
         } else {
           isSameBlock = !activeFloor.value.block_id;
         }
 
         return isSameFloor && isSameBlock;
       } else if (activeBlock.value) {
-        return activeBlock.value.id === flat.block_id?.toString();
+        return String(activeBlock.value.id) === String(flat.block_id);
       } else {
         return true;
         // return !flat.block_id;
