@@ -29,7 +29,7 @@ const TABS = [
 
   {
     id: 2,
-    title: "Shortcodes",
+    title: "Components",
     icon: ShortcodesIcon as Component
   },
 

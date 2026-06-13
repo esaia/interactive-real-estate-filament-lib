@@ -62,16 +62,17 @@ const selectedOrderBy = computed(() => {
 
 const isGold = computed(() => Boolean(irePlugin?.is_gold));
 const is360FlowDisabled = computed(() => !irePlugin?.building_360_addon);
-const projectShortcode = computed(() => `[irep_project id="${projectId.value}"]`);
-const flatsShortcode = computed(() => {
-  const blockIdParam = blockId.value?.value ? ` block_id="${blockId.value.value}"` : "";
-  const defaultViewParam = layout.value === "mixed" ? ` default_view="${defaultView.value}"` : "";
-  return `[irep_flats id="${projectId.value}" per_page="${perPage.value}" layout="${layout.value}"${defaultViewParam}${blockIdParam} order_by="${selectedOrderBy.value}"]`;
+const projectComponent = computed(() => `<IrepProject :id="${projectId.value}" />`);
+const flatsComponent = computed(() => {
+  const blockIdProp = blockId.value?.value ? ` blockId="${blockId.value.value}"` : "";
+  const defaultViewProp = layout.value === "mixed" ? ` defaultView="${defaultView.value}"` : "";
+  return `<IrepFlatsList :id="${projectId.value}" perPage="${perPage.value}" layout="${layout.value}"${defaultViewProp}${blockIdProp} orderBy="${selectedOrderBy.value}" />`;
 });
-const shortcode360 = computed(() => `[irep_360 id="${projectId.value}"]`);
+const component360 = computed(() => `<Irep360 :id="${projectId.value}" />`);
 const copiedProject = ref(false);
 const copiedFlats = ref(false);
 const copied360 = ref(false);
+
 const showManageFiltersModal = ref(false);
 const exampleImage = ref("");
 let copiedTimer: ReturnType<typeof setTimeout> | null = null;
@@ -99,12 +100,13 @@ const copyText = async (value: string, type: "project" | "flats" | "360") => {
 <template>
   <div class="space-y-5">
     <div class="rounded-lg bg-gray-50 p-4">
-      <div class="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-100 p-2">
-        <div class="flex-1 text-gray-600">{{ projectShortcode }}</div>
+      <p class="mb-2 text-sm font-semibold uppercase text-orange-400">Project Component</p>
+      <div class="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-100 p-2 font-mono text-sm">
+        <div class="flex-1 text-gray-600">{{ projectComponent }}</div>
         <button
           type="button"
           class="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-600"
-          @click="copyText(projectShortcode, 'project')"
+          @click="copyText(projectComponent, 'project')"
         >
           <Check v-if="copiedProject" class="size-4 text-emerald-600" />
           <Duplicate v-else class="size-4" />
@@ -114,7 +116,7 @@ const copyText = async (value: string, type: "project" | "flats" | "360") => {
 
     <div class="rounded-lg bg-gray-50 p-4">
       <div class="mb-2 flex items-center justify-between gap-2">
-        <p class="text-sm font-semibold uppercase text-orange-400">Flats List Configuration</p>
+        <p class="text-sm font-semibold uppercase text-orange-400">Flats List Component</p>
         <div
           class="z-10 flex cursor-pointer justify-end"
           @mouseenter="exampleImage = PLUGIN_ASSETS_PATH + 'table-shortcode.webp'"
@@ -125,12 +127,12 @@ const copyText = async (value: string, type: "project" | "flats" | "360") => {
       </div>
 
       <template v-if="isGold">
-        <div class="mb-4 flex items-center gap-2 rounded-md border border-gray-200 bg-gray-100 p-2">
-          <div class="flex-1 text-gray-600">{{ flatsShortcode }}</div>
+        <div class="mb-4 flex items-center gap-2 rounded-md border border-gray-200 bg-gray-100 p-2 font-mono text-sm">
+          <div class="flex-1 break-all text-gray-600">{{ flatsComponent }}</div>
           <button
             type="button"
             class="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-600"
-            @click="copyText(flatsShortcode, 'flats')"
+            @click="copyText(flatsComponent, 'flats')"
           >
             <Check v-if="copiedFlats" class="size-4 text-emerald-600" />
             <Duplicate v-else class="size-4" />
@@ -173,10 +175,10 @@ const copyText = async (value: string, type: "project" | "flats" | "360") => {
             <span class="text-xl" aria-hidden="true">🔒</span>
           </div>
           <p class="mb-1 text-sm font-semibold text-gray-900">
-            Flats List Configuration is available in Gold license.
+            Flats List Component is available in Gold license.
           </p>
           <p class="mb-4 text-xs text-gray-500">
-            Upgrade to customize layout style, sorting, pagination, block filtering, and shortcode generation.
+            Upgrade to customize layout style, sorting, pagination, block filtering, and component generation.
           </p>
           <div class="grid grid-cols-3 gap-3 opacity-60">
             <Input :model-value="'12'" label="Per Page" type="number" disabled />
@@ -189,7 +191,7 @@ const copyText = async (value: string, type: "project" | "flats" | "360") => {
 
     <div class="rounded-lg bg-gray-50 p-4">
       <div class="mb-2 flex items-center justify-between gap-2">
-        <p class="text-sm font-semibold uppercase text-orange-400">360° Viewer Shortcode</p>
+        <p class="text-sm font-semibold uppercase text-orange-400">360° Viewer Component</p>
         <div
           class="z-10 flex cursor-pointer justify-end"
           @mouseenter="exampleImage = PLUGIN_ASSETS_PATH + 'table-shortcode.webp'"
@@ -200,12 +202,12 @@ const copyText = async (value: string, type: "project" | "flats" | "360") => {
       </div>
 
       <template v-if="!is360FlowDisabled">
-        <div class="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-100 p-2">
-          <div class="flex-1 text-gray-600">{{ shortcode360 }}</div>
+        <div class="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-100 p-2 font-mono text-sm">
+          <div class="flex-1 text-gray-600">{{ component360 }}</div>
           <button
             type="button"
             class="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-600"
-            @click="copyText(shortcode360, '360')"
+            @click="copyText(component360, '360')"
           >
             <Check v-if="copied360" class="size-4 text-emerald-600" />
             <Duplicate v-else class="size-4" />
@@ -222,10 +224,10 @@ const copyText = async (value: string, type: "project" | "flats" | "360") => {
             <span class="text-xl" aria-hidden="true">🔒</span>
           </div>
           <p class="mb-1 text-sm font-semibold text-gray-900">
-            360° Viewer Shortcode requires the Building 360 Module Add-on.
+            360° Viewer Component requires the Building 360 Module Add-on.
           </p>
           <p class="mb-4 text-xs text-gray-500">
-            Activate the 360 Add-on to embed an interactive 360° building viewer on any page using a shortcode.
+            Activate the 360 Add-on to embed an interactive 360° building viewer on any page using a Vue component.
           </p>
         </div>
       </template>

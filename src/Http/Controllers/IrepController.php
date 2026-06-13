@@ -83,7 +83,7 @@ class IrepController extends Controller
         'irep_get_images'                       => 'getImages',
         'irep_delete_image'                     => 'deleteImage',
 
-        'irep_import'                           => 'stubNotImplemented',
+        'irep_import'                           => 'importProject',
         'irep_export_zip'                       => 'exportZip',
     ];
 
