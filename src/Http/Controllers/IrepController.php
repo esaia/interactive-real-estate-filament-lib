@@ -517,10 +517,11 @@ class IrepController extends Controller
 
     private function createTooltip(Request $request): JsonResponse
     {
+        $data = $request->input('data', []);
         $tooltip = Tooltip::create([
             'project_id' => $request->input('project_id'),
             'title'      => $request->input('title', 'Action'),
-            'data'       => $request->input('data') ? json_decode($request->input('data'), true) : [],
+            'data'       => is_string($data) ? json_decode($data, true) : $data,
         ]);
 
         return response()->json(['success' => true, 'data' => $tooltip]);
@@ -528,10 +529,11 @@ class IrepController extends Controller
 
     private function updateTooltip(Request $request): JsonResponse
     {
-        $tooltip = Tooltip::findOrFail($request->input('tooltip_id'));
+        $tooltip = Tooltip::findOrFail($request->input('tooltip_id') ?? $request->input('action_id'));
+        $data = $request->input('data');
         $tooltip->update([
             'title' => $request->input('title', $tooltip->title),
-            'data'  => $request->input('data') ? json_decode($request->input('data'), true) : $tooltip->data,
+            'data'  => $data ? (is_string($data) ? json_decode($data, true) : $data) : $tooltip->data,
         ]);
 
         return response()->json(['success' => true, 'data' => $tooltip->fresh()]);
@@ -539,7 +541,7 @@ class IrepController extends Controller
 
     private function deleteTooltip(Request $request): JsonResponse
     {
-        Tooltip::destroy($request->input('tooltip_id'));
+        Tooltip::destroy($request->input('tooltip_id') ?? $request->input('action_id'));
         return response()->json(['success' => true, 'data' => null]);
     }
 

@@ -88,11 +88,11 @@ const updateBlock = async () => {
 
     const svgBase64 = await toBase64(svgElement);
 
+    const imageData = block_image.value ?? activeBlock.value?.block_image ?? null;
     const params = {
         block_id: activeBlock.value?.id,
         title: title.value,
-        block_image:
-            block_image.value?.[0]?.id || activeBlock.value?.block_image[0]?.id,
+        block_image: imageData ? JSON.stringify(imageData) : undefined,
         conf: conf.value?.value,
         polygon_data: activeBlock.value?.polygon_data,
         svg: svgBase64,
@@ -119,11 +119,14 @@ const updateBlock = async () => {
 };
 
 const createBlock = async () => {
+    const selectedImage = block_image.value?.length ? block_image.value : null;
+    const duplicatedImage = Array.isArray(props.duplicatedBlock?.block_image) && props.duplicatedBlock!.block_image.length
+        ? props.duplicatedBlock!.block_image
+        : null;
+    const imageData = selectedImage ?? duplicatedImage;
     const params: any = {
         title: title.value,
-        block_image:
-            block_image?.value?.[0]?.id ||
-            props.duplicatedBlock?.block_image?.[0]?.id,
+        block_image: imageData ? JSON.stringify(imageData) : undefined,
         conf: conf.value?.value,
         project_id: id.value,
     };
