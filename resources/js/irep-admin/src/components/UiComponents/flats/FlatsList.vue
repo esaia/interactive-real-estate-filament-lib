@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch, watchEffect } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import * as XLSX from "xlsx";
 import Modal from "@components/UiComponents/Modal.vue";
 import { FlatItem, FlatsInterface } from "@/types/components";
@@ -19,6 +19,7 @@ import Filteres from "../common/Filteres.vue";
 import EmptyState from "../common/EmptyState.vue";
 import Toggle from "../form/Toggle.vue";
 import ConfigToggle from "../form/ConfigToggle.vue";
+import Checkbox from "../form/Checkbox.vue";
 import { PLEASE_UPGRADE_TO_GOLD } from "@/src/composables/constants";
 
 const props = defineProps<{
@@ -77,7 +78,6 @@ const importFileRef = ref<HTMLInputElement | null>(null);
 const isImporting = ref(false);
 
 const selectedIds = ref<Set<number>>(new Set());
-const selectAllRef = ref<HTMLInputElement | null>(null);
 const showBulkDeleteModal = ref(false);
 const isBulkDeleting = ref(false);
 
@@ -130,12 +130,6 @@ const bulkDelete = async () => {
     showBulkDeleteModal.value = false;
   }
 };
-
-watchEffect(() => {
-  if (selectAllRef.value) {
-    selectAllRef.value.indeterminate = isIndeterminate.value;
-  }
-});
 
 const editFlat = (flat: FlatItem | null) => {
   showEditFlatModal.value = true;
@@ -477,12 +471,10 @@ onMounted(() => {
       >
         <template #header>
           <th class="w-8 !border-l-0 px-2 py-2">
-            <input
-              ref="selectAllRef"
-              type="checkbox"
-              class="cursor-pointer"
-              :checked="isAllSelected"
-              @change="toggleAll"
+            <Checkbox
+              :model-value="isAllSelected"
+              :indeterminate="isIndeterminate"
+              @update:model-value="toggleAll"
             />
           </th>
 
@@ -559,11 +551,9 @@ onMounted(() => {
 
         <template #default="flat">
           <td class="w-8">
-            <input
-              type="checkbox"
-              class="cursor-pointer"
-              :checked="selectedIds.has(Number(flat.slotProps.id))"
-              @change="toggleOne(Number(flat.slotProps.id))"
+            <Checkbox
+              :model-value="selectedIds.has(Number(flat.slotProps.id))"
+              @update:model-value="() => toggleOne(Number(flat.slotProps.id))"
             />
           </td>
           <td class="w-44 items-center">

@@ -2,7 +2,7 @@
 import { showToast } from "@/src/composables/helpers";
 
 const emit = defineEmits<{ (e: "change", val: boolean): void }>();
-const props = defineProps<{ title?: string; desc?: string; disabled?: boolean }>();
+const props = defineProps<{ title?: string; desc?: string; disabled?: boolean; indeterminate?: boolean }>();
 const model = defineModel<any>();
 
 const toggle = () => {
@@ -19,9 +19,12 @@ const toggle = () => {
   <label class="flex cursor-pointer items-start gap-2" :class="{ 'pointer-events-none opacity-50': props.disabled }" @click.prevent="toggle">
     <span
       class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors"
-      :style="model ? 'background:#2563eb;border-color:#2563eb' : 'background:#fff;border-color:#d1d5db'"
+      :style="(model || props.indeterminate) ? 'background:#2563eb;border-color:#2563eb' : 'background:#fff;border-color:#d1d5db'"
     >
-      <svg v-if="model" class="h-2.5 w-2.5" viewBox="0 0 12 12" fill="none">
+      <svg v-if="props.indeterminate && !model" class="h-2.5 w-2.5" viewBox="0 0 12 12" fill="none">
+        <path d="M2 6h8" stroke="#fff" stroke-width="2" stroke-linecap="round" />
+      </svg>
+      <svg v-else-if="model" class="h-2.5 w-2.5" viewBox="0 0 12 12" fill="none">
         <path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
       </svg>
     </span>

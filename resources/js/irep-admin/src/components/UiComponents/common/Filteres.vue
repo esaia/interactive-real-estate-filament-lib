@@ -8,10 +8,10 @@ import { storeToRefs } from "pinia";
 
 const selectedBlock = defineModel<any>("block", {
   set: (block: selectDataItem | undefined) => {
-    return block?.value;
+    return block?.value ?? "none";
   },
   get: (blockId: string | undefined) => {
-    return blocks.value?.find((block) => block.value === blockId);
+    return blocks.value?.find((block) => String(block.value) === String(blockId));
   }
 });
 
@@ -20,7 +20,7 @@ const selectedFloor = defineModel<any>("floor", {
     return floor?.value;
   },
   get: (floorId: string | undefined) => {
-    return floors.value?.find((floor) => floor.value === floorId);
+    return floors.value?.find((floor) => String(floor.value) === String(floorId));
   }
 });
 
@@ -40,6 +40,7 @@ const blocks = computed(() => {
       value: block.id
     };
   });
+  selectBlockData?.unshift({ title: "None", value: "none" });
   selectBlockData?.unshift({ title: "All", value: "all" });
   return selectBlockData;
 });
@@ -63,8 +64,11 @@ const floors = computed(() => {
   return projectFloors.value
     .sort((a, b) => Number(a.floor_number) - Number(b.floor_number))
     ?.map((floor) => {
+      const blockTitle = floor?.block_id
+        ? blocksStore.projectBlocks?.find((b) => String(b.id) === String(floor.block_id))?.title
+        : null;
       return {
-        title: `${floor.floor_number} ${floor?.block_id ? " | block (" + floor.block_id + ")" : ""}`,
+        title: `${floor.floor_number}${blockTitle ? " | " + blockTitle : ""}`,
         value: floor.id
       };
     });

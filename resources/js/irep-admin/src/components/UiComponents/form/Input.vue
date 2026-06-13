@@ -38,8 +38,10 @@ const nativeType = computed(() => (props.type === "number" ? "text" : props.type
 const labelText = computed(() => (props.required && props.label ? `${props.label} *` : props.label));
 
 const onInput = (e: Event) => {
-  const raw = (e.target as HTMLInputElement).value;
+  const el = e.target as HTMLInputElement;
+  const raw = el.value;
   const value = props.type === "number" ? sanitizeNumericString(raw, Boolean(props.isFloat)) : raw;
+  if (props.type === "number" && el.value !== value) el.value = value;
   emit("update:modelValue", value);
 };
 </script>

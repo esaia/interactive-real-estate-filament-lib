@@ -192,7 +192,17 @@ class IrepController extends Controller
 
     private function deleteProject(Request $request): JsonResponse
     {
-        Project::destroy($request->input('project_id'));
+        $id = (int) $request->input('project_id');
+
+        // Delete in FK dependency order — avoids MySQL InnoDB multi-level cascade conflicts
+        Flat::where('project_id', $id)->delete();   // also cascades Reservation rows
+        Floor::where('project_id', $id)->delete();
+        Block::where('project_id', $id)->delete();
+        Type::where('project_id', $id)->delete();
+        Tooltip::where('project_id', $id)->delete();
+        ProjectMeta::where('project_id', $id)->delete();
+        Project::destroy($id);
+
         return response()->json(['success' => true, 'data' => null]);
     }
 
@@ -263,7 +273,9 @@ class IrepController extends Controller
         $blockFilter = $request->input('block');
 
         $query = Floor::where('project_id', $request->input('project_id'));
-        if ($blockFilter && $blockFilter !== 'all') {
+        if ($blockFilter === 'none') {
+            $query->whereNull('block_id');
+        } elseif ($blockFilter && $blockFilter !== 'all') {
             $query->where('block_id', $blockFilter);
         }
 
@@ -327,7 +339,9 @@ class IrepController extends Controller
 
         $query = Flat::with('type')->where('project_id', $request->input('project_id'));
 
-        if ($blockFilter && $blockFilter !== 'all') {
+        if ($blockFilter === 'none') {
+            $query->whereNull('block_id');
+        } elseif ($blockFilter && $blockFilter !== 'all') {
             $query->where('block_id', $blockFilter);
         }
         if ($floorFilter && $floorFilter !== 'all' && $floorFilter !== '') {
@@ -646,7 +660,8 @@ class IrepController extends Controller
 
     private function getFlatFields(Request $request): JsonResponse
     {
-        return response()->json(['success' => true, 'data' => Setting::get('irep_flat_custom_fields', [])]);
+        $fields = Setting::get('irep_flat_custom_fields', []);
+        return response()->json(['success' => true, 'data' => array_values((array) $fields)]);
     }
 
     private function addFlatCustomFields(Request $request): JsonResponse
@@ -820,11 +835,303 @@ class IrepController extends Controller
         return response()->json(['success' => true]);
     }
 
-    // ─── Export / Stubs ───────────────────────────────────────────────────────
+    // ─── Export / Import / Stubs ─────────────────────────────────────────────
 
     private function exportZip(Request $request): JsonResponse
     {
         return response()->json(['success' => false, 'data' => 'Export not yet implemented.']);
+    }
+
+    private function importProject(Request $request): JsonResponse
+    {
+        $file = $request->file('file');
+        if (!$file || strtolower($file->getClientOriginalExtension()) !== 'zip') {
+            return response()->json(['success' => false, 'data' => 'Please upload a valid ZIP file.'], 422);
+        }
+
+        $tmpDir = sys_get_temp_dir() . '/irep_import_' . uniqid();
+        mkdir($tmpDir, 0777, true);
+
+        try {
+            $zip = new \ZipArchive();
+            if ($zip->open($file->getPathname()) !== true) {
+                return response()->json(['success' => false, 'data' => 'Failed to open ZIP file.'], 422);
+            }
+            $zip->extractTo($tmpDir);
+            $zip->close();
+
+            $projectData    = json_decode(file_get_contents($tmpDir . '/project_data.json'), true);
+            $imageMap       = json_decode(file_get_contents($tmpDir . '/image_map.json'), true) ?? [];
+            $attachmentMap  = json_decode(file_get_contents($tmpDir . '/attachment_id_map.json'), true) ?? [];
+
+            // ── Image upload phase ────────────────────────────────────────────
+            $disk = Storage::disk('public');
+
+            // Track which zip paths we already copied (avoid duplicates across maps)
+            $zipPathToStoragePath = [];
+
+            $copyImage = function (string $zipRelPath) use ($tmpDir, $disk, &$zipPathToStoragePath): ?string {
+                if (isset($zipPathToStoragePath[$zipRelPath])) {
+                    return $zipPathToStoragePath[$zipRelPath];
+                }
+                $fullPath = $tmpDir . '/' . $zipRelPath;
+                if (!file_exists($fullPath)) {
+                    return null;
+                }
+                $originalName = basename($zipRelPath);
+                $storagePath  = 'irep/images/' . $originalName;
+                if (!$disk->exists($storagePath)) {
+                    $disk->put($storagePath, file_get_contents($fullPath));
+                }
+                $zipPathToStoragePath[$zipRelPath] = $storagePath;
+                return $storagePath;
+            };
+
+            // attachment_id → storage path
+            $attachIdToStoragePath = [];
+            foreach ($attachmentMap as $id => $url) {
+                if (isset($imageMap[$url])) {
+                    $path = $copyImage($imageMap[$url]);
+                    if ($path) {
+                        $attachIdToStoragePath[(string) $id] = $path;
+                    }
+                }
+            }
+
+            // WordPress URL → storage path (for 360 img fields)
+            $urlToStoragePath = [];
+            foreach ($imageMap as $url => $zipRelPath) {
+                $path = $copyImage($zipRelPath);
+                if ($path) {
+                    $urlToStoragePath[$url] = $path;
+                }
+            }
+
+            // ── Helper closures ───────────────────────────────────────────────
+            $makeObj = fn (string $p) => ['id' => $p, 'url' => asset('storage/' . $p)];
+
+            $resolveId = function (?string $id) use ($attachIdToStoragePath, $makeObj): ?array {
+                if (!$id || !isset($attachIdToStoragePath[$id])) return null;
+                return $makeObj($attachIdToStoragePath[$id]);
+            };
+
+            $resolveIdArray = function (array $ids) use ($resolveId): array {
+                return array_values(array_filter(array_map(fn ($id) => $resolveId((string) $id), $ids)));
+            };
+
+            $resolveIdJson = function (?string $json) use ($resolveIdArray): array {
+                if (!$json) return [];
+                $ids = json_decode($json, true);
+                return is_array($ids) ? $resolveIdArray($ids) : [];
+            };
+
+            $decodeJson = function (mixed $val): mixed {
+                if (is_array($val) || is_null($val)) return $val;
+                return json_decode($val, true) ?? $val;
+            };
+
+            $resolve360Images = function (?string $json) use ($urlToStoragePath, $makeObj): array {
+                if (!$json) return [];
+                $items = is_string($json) ? (json_decode($json, true) ?? []) : $json;
+                return array_map(function ($item) use ($urlToStoragePath, $makeObj) {
+                    $imgUrl  = $item['img'] ?? '';
+                    $newPath = $urlToStoragePath[$imgUrl] ?? null;
+                    return [
+                        'img'          => $newPath ? asset('storage/' . $newPath) : $imgUrl,
+                        'svg'          => $item['svg'] ?? '',
+                        'polygon_data' => $item['polygon_data'] ?? [],
+                    ];
+                }, $items);
+            };
+
+            $remapPolygon = function (array $items) use (&$blockIdMap, &$floorIdMap, &$flatIdMap): array {
+                return array_map(function ($item) use (&$blockIdMap, &$floorIdMap, &$flatIdMap) {
+                    $type  = $item['type'] ?? '';
+                    $oldId = (string) ($item['id'] ?? '');
+                    $newId = match ($type) {
+                        'block' => (string) ($blockIdMap[$oldId] ?? $oldId),
+                        'floor' => (string) ($floorIdMap[$oldId] ?? $oldId),
+                        'flat'  => (string) ($flatIdMap[$oldId]  ?? $oldId),
+                        default => $oldId,
+                    };
+                    return array_merge($item, ['id' => $newId]);
+                }, $items);
+            };
+
+            // ── Phase 2: Create records ───────────────────────────────────────
+            $blockIdMap = [];
+            $floorIdMap = [];
+            $flatIdMap  = [];
+
+            $proj       = $projectData['irep_project'];
+            $projImg    = $resolveId((string) ($proj['project_image'] ?? ''));
+
+            $project = Project::create([
+                'title'         => $proj['title'],
+                'slug'          => Str::slug($proj['title']) . '-' . Str::random(5),
+                'svg'           => $proj['svg'] ?? '',
+                'polygon_data'  => [],
+                'images_360'    => $resolve360Images($proj['360images'] ?? null),
+                'project_image' => $projImg ? [$projImg] : [],
+            ]);
+
+            // Types
+            $typeIdMap = [];
+            foreach ($projectData['irep_types'] as $t) {
+                $type = Type::create([
+                    'project_id'  => $project->id,
+                    'title'       => $t['title'],
+                    'teaser'      => $t['teaser'] ?: null,
+                    'area_m2'     => $t['area_m2'] ?: null,
+                    'rooms_count' => $t['rooms_count'] ?: null,
+                    'image_2d'    => $resolveIdJson($t['image_2d'] ?? null),
+                    'image_3d'    => $resolveIdJson($t['image_3d'] ?? null),
+                    'gallery'     => $resolveIdJson($t['gallery'] ?? null),
+                    'other'       => $decodeJson($t['other'] ?? null) ?? [],
+                ]);
+                $typeIdMap[(string) $t['id']] = $type->id;
+            }
+
+            // Blocks
+            $createdBlocks    = []; // old_id => ['model' => Block, 'data' => array]
+            foreach ($projectData['irep_blocks'] as $b) {
+                $blockImg = $resolveId((string) ($b['block_image'] ?? ''));
+                $block    = Block::create([
+                    'project_id'   => $project->id,
+                    'title'        => $b['title'],
+                    'is_active'    => (bool) ($b['is_active'] ?? true),
+                    'conf'         => $b['conf'] ?: null,
+                    'svg'          => $b['svg'] ?? '',
+                    'polygon_data' => [],
+                    'images_360'   => $resolve360Images($b['360images'] ?? null),
+                    'block_image'  => $blockImg ? [$blockImg] : null,
+                ]);
+                $blockIdMap[(string) $b['id']] = $block->id;
+                $createdBlocks[(string) $b['id']] = ['model' => $block, 'data' => $b];
+            }
+
+            // Floors
+            $createdFloors = []; // old_id => ['model' => Floor, 'data' => array]
+            foreach ($projectData['irep_floors'] as $f) {
+                $floorImg  = $resolveId((string) ($f['floor_image'] ?? ''));
+                $newBlockId = isset($f['block_id']) ? ($blockIdMap[(string) $f['block_id']] ?? null) : null;
+                $floor     = Floor::create([
+                    'project_id'   => $project->id,
+                    'block_id'     => $newBlockId,
+                    'floor_number' => (int) ($f['floor_number'] ?? 0),
+                    'title'        => $f['title'],
+                    'conf'         => $f['conf'] ?: null,
+                    'svg'          => $f['svg'] ?? '',
+                    'polygon_data' => [],
+                    'floor_image'  => $floorImg ? [$floorImg] : null,
+                ]);
+                $floorIdMap[(string) $f['id']] = $floor->id;
+                $createdFloors[(string) $f['id']] = ['model' => $floor, 'data' => $f];
+            }
+
+            // Flats
+            foreach ($projectData['irep_flats'] as $fl) {
+                $newBlockId = isset($fl['block_id']) ? ($blockIdMap[(string) $fl['block_id']] ?? null) : null;
+                $newFloorId = isset($fl['floor_id']) ? ($floorIdMap[(string) $fl['floor_id']] ?? null) : null;
+                $newTypeId  = isset($fl['type_id'])  ? ($typeIdMap[(string) $fl['type_id']] ?? null)   : null;
+
+                $filesRaw = $fl['files'] ?? null;
+                $fileIds  = is_string($filesRaw) ? (json_decode($filesRaw, true) ?? []) : ($filesRaw ?? []);
+                $files    = is_array($fileIds) ? $resolveIdArray(array_map('strval', $fileIds)) : [];
+
+                $flat = Flat::create([
+                    'project_id'    => $project->id,
+                    'block_id'      => $newBlockId,
+                    'floor_id'      => $newFloorId,
+                    'type_id'       => $newTypeId,
+                    'flat_number'   => $fl['flat_number'],
+                    'is_active'     => (bool) ($fl['is_active'] ?? true),
+                    'conf'          => $fl['conf'] ?: null,
+                    'price'         => $fl['price'] ?: null,
+                    'offer_price'   => $fl['offer_price'] ?: null,
+                    'request_price' => (bool) ($fl['request_price'] ?? false),
+                    'click_action'  => $fl['click_action'] ?: null,
+                    'follow_link'   => $decodeJson($fl['follow_link'] ?? null),
+                    'use_type'      => ($fl['use_type'] && $fl['use_type'] !== '0') ? 'true' : 'false',
+                    'flat_type'     => $decodeJson($fl['type'] ?? null),
+                    'files'         => $files,
+                ]);
+                $flatIdMap[(string) $fl['id']] = $flat->id;
+            }
+
+            // Tooltips
+            foreach ($projectData['irep_tooltip'] as $tt) {
+                Tooltip::create([
+                    'project_id' => $project->id,
+                    'title'      => $tt['title'],
+                    'data'       => $decodeJson($tt['data'] ?? null) ?? [],
+                ]);
+            }
+
+            // Meta
+            foreach ($projectData['irep_project_meta'] as $m) {
+                ProjectMeta::updateOrCreate(
+                    ['project_id' => $project->id, 'meta_key' => $m['meta_key']],
+                    ['meta_value' => $m['meta_value']]
+                );
+            }
+
+            // ── Phase 3: Remap polygon_data ───────────────────────────────────
+            $projPolygon = $decodeJson($proj['polygon_data'] ?? null) ?? [];
+            $project->update(['polygon_data' => $remapPolygon($projPolygon)]);
+
+            foreach ($createdBlocks as $oldBlockId => $entry) {
+                /** @var Block $block */
+                $block      = $entry['model'];
+                $blockData  = $entry['data'];
+                $bPolygon   = $decodeJson($blockData['polygon_data'] ?? null) ?? [];
+                $bImages360 = $block->images_360 ?? [];
+
+                $remappedImages360 = array_map(function ($img) use ($remapPolygon) {
+                    $img['polygon_data'] = $remapPolygon($img['polygon_data'] ?? []);
+                    return $img;
+                }, $bImages360);
+
+                $block->update([
+                    'polygon_data' => $remapPolygon($bPolygon),
+                    'images_360'   => $remappedImages360,
+                ]);
+            }
+
+            foreach ($createdFloors as $oldFloorId => $entry) {
+                /** @var Floor $floor */
+                $floor     = $entry['model'];
+                $floorData = $entry['data'];
+                $fPolygon  = $decodeJson($floorData['polygon_data'] ?? null) ?? [];
+                $floor->update(['polygon_data' => $remapPolygon($fPolygon)]);
+            }
+
+            // Also remap project 360images polygon_data
+            $projImages360 = $project->images_360 ?? [];
+            $remappedProj360 = array_map(function ($img) use ($remapPolygon) {
+                $img['polygon_data'] = $remapPolygon($img['polygon_data'] ?? []);
+                return $img;
+            }, $projImages360);
+            $project->update(['images_360' => $remappedProj360]);
+
+        } catch (\Throwable $e) {
+            $this->rmdirRecursive($tmpDir);
+            return response()->json(['success' => false, 'data' => 'Import failed: ' . $e->getMessage()], 500);
+        }
+
+        $this->rmdirRecursive($tmpDir);
+        return response()->json(['success' => true, 'data' => ['project_id' => $project->id]]);
+    }
+
+    private function rmdirRecursive(string $dir): void
+    {
+        if (!is_dir($dir)) return;
+        foreach (scandir($dir) as $item) {
+            if ($item === '.' || $item === '..') continue;
+            $path = $dir . '/' . $item;
+            is_dir($path) ? $this->rmdirRecursive($path) : unlink($path);
+        }
+        rmdir($dir);
     }
 
     private function stubNotImplemented(Request $request): JsonResponse

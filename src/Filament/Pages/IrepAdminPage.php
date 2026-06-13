@@ -18,6 +18,11 @@ class IrepAdminPage extends Page
 
     protected static ?int $navigationSort = 2;
 
+    public function getMaxContentWidth(): \Filament\Support\Enums\Width|string|null
+    {
+        return '90rem';
+    }
+
     public function getView(): string
     {
         return 'filament-irep::filament.pages.irep-admin-page';

@@ -61,9 +61,6 @@ const statusOptions = computed<selectDataItem[]>(() => {
     sold: soldColor
   };
 
-  const availableColor = metaStore.getMeta?.("available_flat_color")?.meta_value as string | undefined;
-  const availableItem: selectDataItem = { title: "Available", value: "", color: availableColor };
-
   const defaultItems = DEFAULT_CONFIG.map((item) => ({
     ...item,
     color: defaultColorMap[item.value]
@@ -73,7 +70,7 @@ const statusOptions = computed<selectDataItem[]>(() => {
     value: t.value,
     color: t.type_color
   }));
-  return [availableItem, ...defaultItems, ...custom];
+  return [...defaultItems, ...custom];
 });
 
 async function openManageModal() {
