@@ -142,7 +142,6 @@ const updateFloor = async () => {
 
             if (floor_image.value?.[0] && activeFloor.value) {
                 activeFloor.value.floor_image = floor_image.value;
-                floor_image.value = null;
             }
         } else {
             showToast("error", data?.data || "Something went wrong!");
