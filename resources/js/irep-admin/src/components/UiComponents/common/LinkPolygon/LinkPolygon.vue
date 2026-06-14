@@ -266,6 +266,7 @@ onMounted(() => {
           Block
         </div>
         <div
+          v-if="!isBlockCanvas"
           class="sidebar-item-svgicon svgicon-hover-text bg-gray-50 !px-4"
           :class="{ '!bg-blue-600 !border-blue-600 text-white': activeTab === 'floor' }"
           @click="activeTab = 'floor'"
@@ -273,6 +274,15 @@ onMounted(() => {
           Floor
         </div>
       </template>
+
+      <div
+        v-if="isBlockCanvas"
+        class="sidebar-item-svgicon svgicon-hover-text bg-gray-50 !px-4"
+        :class="{ '!bg-blue-600 !border-blue-600 text-white': activeTab === 'floor' }"
+        @click="activeTab = 'floor'"
+      >
+        Floor
+      </div>
 
       <div
         class="sidebar-item-svgicon svgicon-hover-text bg-gray-50 !px-4"
