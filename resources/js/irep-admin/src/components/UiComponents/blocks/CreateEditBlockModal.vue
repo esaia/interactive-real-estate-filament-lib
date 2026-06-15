@@ -88,7 +88,8 @@ const updateBlock = async () => {
 
     const svgBase64 = await toBase64(svgElement);
 
-    const imageData = block_image.value ?? activeBlock.value?.block_image ?? null;
+    const imageData =
+        block_image.value ?? activeBlock.value?.block_image ?? null;
     const params = {
         block_id: activeBlock.value?.id,
         title: title.value,
@@ -109,9 +110,8 @@ const updateBlock = async () => {
 
         activeBlockGroup.value = null;
 
-        if (block_image.value?.[0] && activeBlock.value) {
-            activeBlock.value.block_image = block_image.value;
-            block_image.value = null;
+        if (activeBlock.value) {
+            activeBlock.value.block_image = block_image.value ?? activeBlock.value.block_image;
         }
     } else {
         showToast("error", data?.data || "Something went wrong!");
@@ -120,9 +120,11 @@ const updateBlock = async () => {
 
 const createBlock = async () => {
     const selectedImage = block_image.value?.length ? block_image.value : null;
-    const duplicatedImage = Array.isArray(props.duplicatedBlock?.block_image) && props.duplicatedBlock!.block_image.length
-        ? props.duplicatedBlock!.block_image
-        : null;
+    const duplicatedImage =
+        Array.isArray(props.duplicatedBlock?.block_image) &&
+        props.duplicatedBlock!.block_image.length
+            ? props.duplicatedBlock!.block_image
+            : null;
     const imageData = selectedImage ?? duplicatedImage;
     const params: any = {
         title: title.value,
@@ -209,7 +211,7 @@ onUnmounted(() => {
         <div class="h-fit flex-1">
             <Canvas
                 v-if="activeBlock"
-                :projectImage="activeBlock?.block_image?.[0].url"
+                :projectImage="activeBlock?.block_image?.[0]?.url"
                 :polygon_data="activeBlock?.polygon_data"
                 :svgRef="blockSvgRef"
                 :svg="activeBlock.svg"

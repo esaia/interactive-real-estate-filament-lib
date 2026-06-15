@@ -138,7 +138,7 @@ class IrepController extends Controller
             return array_is_list($value) ? $value : [$value];
         }
         if (is_string($value) && $value !== '') {
-            return [['id' => $value, 'url' => asset('storage/' . $value)]];
+            return [['id' => $value, 'url' => '/storage/' . $value]];
         }
         return [];
     }
@@ -755,7 +755,7 @@ class IrepController extends Controller
 
         $file = $request->file('file');
         $path = $file->store('irep/images', 'public');
-        $url  = asset('storage/' . $path);
+        $url  = '/storage/' . $path;
 
         $w = 0;
         $h = 0;
@@ -803,7 +803,7 @@ class IrepController extends Controller
         $sliced = $allFiles->slice(($page - 1) * $perPage, $perPage)->values();
 
         $images = $sliced->map(function ($path) use ($disk) {
-            $url  = asset('storage/' . $path);
+            $url  = '/storage/' . $path;
             $name = basename($path);
             $w = 0; $h = 0;
             $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
@@ -912,7 +912,7 @@ class IrepController extends Controller
             }
 
             // ── Helper closures ───────────────────────────────────────────────
-            $makeObj = fn (string $p) => ['id' => $p, 'url' => asset('storage/' . $p)];
+            $makeObj = fn (string $p) => ['id' => $p, 'url' => '/storage/' . $p];
 
             $resolveId = function (?string $id) use ($attachIdToStoragePath, $makeObj): ?array {
                 if (!$id || !isset($attachIdToStoragePath[$id])) return null;
@@ -941,7 +941,7 @@ class IrepController extends Controller
                     $imgUrl  = $item['img'] ?? '';
                     $newPath = $urlToStoragePath[$imgUrl] ?? null;
                     return [
-                        'img'          => $newPath ? asset('storage/' . $newPath) : $imgUrl,
+                        'img'          => $newPath ? '/storage/' . $newPath : $imgUrl,
                         'svg'          => $item['svg'] ?? '',
                         'polygon_data' => $item['polygon_data'] ?? [],
                     ];
