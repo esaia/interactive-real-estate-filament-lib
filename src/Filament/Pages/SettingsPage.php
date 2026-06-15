@@ -62,15 +62,36 @@ class SettingsPage extends Page
             $typeOtherKey = '';
         }
 
+        $tableFields = Setting::get('irep_table_fields', []);
+        if (! is_array($tableFields) || (count($tableFields) > 0 && ! is_array(reset($tableFields)))) {
+            $tableFields = [];
+        }
+
+        $customFields = Setting::get('irep_flat_custom_fields', []);
+        if (! is_array($customFields) || (count($customFields) > 0 && ! is_array(reset($customFields)))) {
+            $customFields = [];
+        }
+
+        $actionSvgs = Setting::get('irep_table_action_svgs', ['contactSvg' => '', 'downloadSvg' => '', 'magnifySvg' => '']);
+        if (! is_array($actionSvgs)) {
+            $actionSvgs = ['contactSvg' => '', 'downloadSvg' => '', 'magnifySvg' => ''];
+        }
+
+        $validParams = array_keys(self::COMMON_FIELDS);
+        if (! in_array($flatFieldQueryParameter, $validParams)) {
+            $flatFieldQueryParameter = 'id';
+            $typeOtherKey = '';
+        }
+
         $this->data = [
             'irep_table_one_column'          => (bool) Setting::get('irep_table_one_column', false),
             'irep_table_whole_row_clickable' => (bool) Setting::get('irep_table_whole_row_clickable', false),
             'irep_table_contact_url'         => Setting::get('irep_table_contact_url', ''),
             'flatFieldQueryParameter'        => $flatFieldQueryParameter,
             'typeOtherKey'                   => $typeOtherKey,
-            'irep_table_action_svgs'         => Setting::get('irep_table_action_svgs', ['contactSvg' => '', 'downloadSvg' => '', 'magnifySvg' => '']),
-            'irep_table_fields'              => Setting::get('irep_table_fields', []),
-            'irep_flat_custom_fields'        => Setting::get('irep_flat_custom_fields', []),
+            'irep_table_action_svgs'         => $actionSvgs,
+            'irep_table_fields'              => $tableFields,
+            'irep_flat_custom_fields'        => $customFields,
         ];
     }
 
