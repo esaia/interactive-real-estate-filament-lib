@@ -24,7 +24,7 @@ const props = defineProps<{
 }>();
 
 function normalizeModelValue(val: typeof props.modelValue): imageInterface[] {
-    if (Array.isArray(val)) return val.filter(Boolean);
+    if (Array.isArray(val)) return val.filter((item): item is imageInterface => !!item && typeof item === "object" && "url" in item);
     return [];
 }
 

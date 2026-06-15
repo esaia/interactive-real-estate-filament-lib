@@ -180,9 +180,7 @@ const submitForm = async () => {
     flat_type: JSON.stringify(flatTypeData)
   };
 
-  if (Array.isArray(obj.files) && obj.files.length) {
-    params.files = obj.files.map((i: any) => i.id);
-  }
+  params.files = JSON.stringify(Array.isArray(obj.files) ? obj.files : []);
 
   loading.value = true;
 
