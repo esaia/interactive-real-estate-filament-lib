@@ -372,7 +372,7 @@ class IrepController extends Controller
             'conf'          => $request->input('conf') ?: null,
             'price'         => $request->input('price') ?: null,
             'offer_price'   => $request->input('offer_price') ?: null,
-            'request_price' => (bool) $request->input('request_price', false),
+            'request_price' => filter_var($request->input('request_price', false), FILTER_VALIDATE_BOOLEAN),
             'click_action'  => $request->input('click_action') ?: null,
             'follow_link'   => $request->has('follow_link') ? $this->decodeOrReturn($request->input('follow_link')) : null,
             'use_type'      => $request->input('use_type') ?: null,
@@ -396,7 +396,7 @@ class IrepController extends Controller
             if ($request->has($field)) $data[$field] = $request->input($field) ?: null;
         }
         foreach (['is_active', 'request_price'] as $field) {
-            if ($request->has($field)) $data[$field] = (bool) $request->input($field);
+            if ($request->has($field)) $data[$field] = filter_var($request->input($field), FILTER_VALIDATE_BOOLEAN);
         }
         foreach (['floor_id', 'block_id', 'type_id'] as $field) {
             if ($request->has($field)) $data[$field] = $request->input($field) ?: null;
@@ -768,13 +768,18 @@ class IrepController extends Controller
             return response()->json(['success' => false, 'data' => 'Project not found'], 404);
         }
 
+        $customTypesSetting = Setting::where('key', 'irep_custom_status_types')->first();
+        $customTypes = $customTypesSetting ? json_decode($customTypesSetting->value, true) : [];
+        $meta = $project->meta->toArray();
+        $meta[] = ['meta_key' => 'custom_types', 'meta_value' => is_array($customTypes) ? $customTypes : []];
+
         return response()->json(['success' => true, 'data' => [
             'project' => $project,
             'blocks'  => $project->blocks,
             'floors'  => $project->floors,
             'flats'   => $project->flats,
             'types'   => $project->types,
-            'meta'    => $project->meta,
+            'meta'    => $meta,
             'actions' => $project->tooltips,
         ]]);
     }
