@@ -31,7 +31,7 @@ const handleImportClick = () => {
 
             <div class="flex items-center gap-5">
                 <div
-                    class="ire-cursor-pointer inline-flex items-center rounded bg-gray-100 px-4 py-2 font-bold text-gray-800 hover:bg-gray-200"
+                    class="ire-cursor-pointer inline-flex items-center rounded bg-gray-100 px-4 py-2 text-gray-800 hover:bg-gray-200"
                     @click="handleImportClick"
                 >
                     <Import class="mr-2 h-4 w-4" />

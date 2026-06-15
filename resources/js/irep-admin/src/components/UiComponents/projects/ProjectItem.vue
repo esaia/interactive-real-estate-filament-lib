@@ -109,11 +109,11 @@ const onExportClick = () => {
 
       <button
         type="button"
-        class="shrink-0 rounded-md p-2 text-gray-500 transition-colors hover:bg-red-900/40 hover:text-red-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
+        class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-transparent text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 active:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30"
         aria-label="Delete project"
         @click.stop="showDeleteModal = true"
       >
-        <Delete class="h-5 w-5" />
+        <Delete class="h-4 w-4" />
       </button>
     </div>
   </div>

@@ -112,7 +112,7 @@ class IrepController extends Controller
             return response()->json(['success' => true, 'data' => $data]);
         }
 
-        $projects = Project::all()->map(function ($project) {
+        $projects = Project::latest()->get()->map(function ($project) {
             $data = $project->toArray();
             $data['project_image'] = $this->normalizeProjectImage($project->project_image);
             return $data;
@@ -434,17 +434,100 @@ class IrepController extends Controller
 
     private function bulkDeleteFlats(Request $request): JsonResponse
     {
-        $ids = $request->input('flat_ids');
+        $ids = $request->input('ids');
         if (is_string($ids)) {
             $ids = json_decode($ids, true);
         }
-        Flat::whereIn('id', (array) $ids)->delete();
-        return response()->json(['success' => true, 'data' => null]);
+        $deleted = Flat::whereIn('id', (array) $ids)->delete();
+        return response()->json(['success' => true, 'data' => ['deleted' => $deleted]]);
     }
 
     private function importFlatsExcel(Request $request): JsonResponse
     {
-        return response()->json(['success' => false, 'data' => 'Excel import not yet implemented.']);
+        $projectId = (int) $request->input('project_id');
+        $flatsRaw  = $request->input('flats');
+
+        if (!$projectId) {
+            return response()->json(['success' => false, 'data' => 'project_id is required']);
+        }
+
+        if (is_string($flatsRaw)) {
+            $flatsRaw = json_decode($flatsRaw, true);
+        }
+
+        if (!is_array($flatsRaw) || empty($flatsRaw)) {
+            return response()->json(['success' => false, 'data' => 'No flat rows provided']);
+        }
+
+        $imported = 0;
+        $failed   = 0;
+
+        foreach ($flatsRaw as $row) {
+            if (!is_array($row) || empty($row['flat_number'])) {
+                $failed++;
+                continue;
+            }
+
+            $typeRaw = isset($row['type']) && is_array($row['type']) ? $row['type'] : [];
+            $useType = !empty($row['use_type']);
+            $typeId  = $useType && !empty($row['type_id']) ? (int) $row['type_id'] : null;
+
+            if ($useType && $typeId) {
+                if (!Type::where('id', $typeId)->where('project_id', $projectId)->exists()) {
+                    $useType = false;
+                    $typeId  = null;
+                }
+            }
+
+            $blockId = isset($row['block_id']) && $row['block_id'] !== '' ? (int) $row['block_id'] : null;
+            if ($blockId && !Block::where('id', $blockId)->where('project_id', $projectId)->exists()) {
+                $blockId = null;
+            }
+
+            $floorId = isset($row['floor_id']) && $row['floor_id'] !== '' ? (int) $row['floor_id'] : null;
+            if ($floorId && !Floor::where('id', $floorId)->where('project_id', $projectId)->exists()) {
+                $floorId = null;
+            }
+
+            $other = isset($typeRaw['other']) && is_array($typeRaw['other']) ? $typeRaw['other'] : [];
+
+            $flat = Flat::create([
+                'project_id'    => $projectId,
+                'flat_number'   => (string) $row['flat_number'],
+                'price'         => isset($row['price']) ? floatval($row['price']) : null,
+                'offer_price'   => isset($row['offer_price']) ? floatval($row['offer_price']) : null,
+                'conf'          => isset($row['conf']) && $row['conf'] !== '' ? (string) $row['conf'] : null,
+                'floor_id'      => $floorId,
+                'block_id'      => $blockId,
+                'request_price' => !empty($row['request_price']),
+                'is_active'     => true,
+                'use_type'      => $useType ? 'true' : 'false',
+                'type_id'       => $typeId,
+                'click_action'  => isset($row['click_action']) && $row['click_action'] !== '' ? (string) $row['click_action'] : null,
+                'follow_link'   => [
+                    'link'   => isset($row['follow_link']['link']) ? (string) $row['follow_link']['link'] : '',
+                    'target' => !empty($row['follow_link']['target']),
+                ],
+                'flat_type'     => [
+                    'title'       => isset($typeRaw['title']) ? (string) $typeRaw['title'] : '',
+                    'teaser'      => isset($typeRaw['teaser']) ? (string) $typeRaw['teaser'] : '',
+                    'area_m2'     => isset($typeRaw['area_m2']) ? floatval($typeRaw['area_m2']) : 0.0,
+                    'rooms_count' => isset($typeRaw['rooms_count']) ? floatval($typeRaw['rooms_count']) : 0.0,
+                    'other'       => array_values(array_filter($other, fn ($o) => is_array($o) && isset($o['key']))),
+                    'image_2d'    => [],
+                    'image_3d'    => [],
+                ],
+                'files'         => [],
+            ]);
+
+            if ($flat) {
+                $imported++;
+            } else {
+                $failed++;
+            }
+        }
+
+        return response()->json(['success' => true, 'data' => ['imported' => $imported, 'failed' => $failed]]);
     }
 
     // ─── Types ───────────────────────────────────────────────────────────────

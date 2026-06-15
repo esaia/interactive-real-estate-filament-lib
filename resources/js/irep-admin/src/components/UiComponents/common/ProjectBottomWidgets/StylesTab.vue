@@ -122,6 +122,20 @@ defineExpose({
           <div class="rounded-md border bg-gray-50 p-2">
             <ColorPicker v-model="strokeColor" label="stroke" :default-color="META.PREVIEW_STROKE_COLOR" />
           </div>
+          <div class="relative rounded-md border bg-gray-50 p-2">
+            <ColorPicker
+              v-model="primaryColor"
+              label="Primary color"
+              :default-color="META.PREVIEW_PRIMARY_COLOR"
+              :disabled="!irePlugin?.is_gold"
+            />
+            <p class="mt-2 text-xs text-gray-500">Use a dark primary color for better contrast.</p>
+            <div
+              v-if="!irePlugin?.is_gold"
+              class="absolute inset-0 cursor-pointer rounded-md bg-gray-400/35"
+              @click="pushToPlansPage()"
+            />
+          </div>
         </div>
         <div
           v-if="!irePlugin?.is_premium"
@@ -131,27 +145,6 @@ defineExpose({
       </div>
       <div v-if="!irePlugin?.is_premium" class="mt-2">
         <LicensePlanBadge plan="premium" />
-      </div>
-    </div>
-
-    <div class="rounded-md border border-amber-200 bg-gray-50/40 p-3">
-      <div class="relative rounded-md border bg-gray-50 p-2">
-        <ColorPicker
-          v-model="primaryColor"
-          label="Primary color"
-          :default-color="META.PREVIEW_PRIMARY_COLOR"
-          :disabled="!irePlugin?.is_gold"
-        />
-        <p class="mt-2 text-xs text-gray-500">Use a dark primary color for better contrast.</p>
-        <div
-          v-if="!irePlugin.is_gold"
-          class="absolute bottom-0 left-0 h-full w-full cursor-pointer rounded-md bg-gray-400/35"
-          @click="pushToPlansPage()"
-        />
-      </div>
-
-      <div v-if="!irePlugin?.is_gold" class="mt-2">
-        <LicensePlanBadge plan="gold" />
       </div>
     </div>
 

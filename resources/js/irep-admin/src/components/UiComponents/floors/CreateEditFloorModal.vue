@@ -115,7 +115,8 @@ const updateFloor = async () => {
     const svgElement = floorSvgRef.value?.querySelector("svg");
     const svgBase64 = await toBase64(svgElement);
 
-    const imageData = floor_image.value ?? floorStore.activeFloor?.floor_image ?? null;
+    const imageData =
+        floor_image.value ?? floorStore.activeFloor?.floor_image ?? null;
     const params: any = {
         title: title.value,
         floor_number: floor_number.value,
@@ -140,8 +141,8 @@ const updateFloor = async () => {
 
             activeGroup.value = null;
 
-            if (activeFloor.value) {
-                activeFloor.value.floor_image = floor_image.value ?? activeFloor.value.floor_image;
+            if (floor_image.value?.[0] && activeFloor.value) {
+                activeFloor.value.floor_image = floor_image.value;
             }
         } else {
             showToast("error", data?.data || "Something went wrong!");
@@ -152,11 +153,14 @@ const updateFloor = async () => {
 };
 
 const createFloor = async () => {
-    const createImageData = floor_image.value ?? props.duplicatedFloor?.floor_image ?? null;
+    const createImageData =
+        floor_image.value ?? props.duplicatedFloor?.floor_image ?? null;
     const params: any = {
         title: title.value,
         floor_number: floor_number.value,
-        floor_image: createImageData ? JSON.stringify(createImageData) : undefined,
+        floor_image: createImageData
+            ? JSON.stringify(createImageData)
+            : undefined,
         conf: conf.value?.value,
         project_id: id.value,
     };
