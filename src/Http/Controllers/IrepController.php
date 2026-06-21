@@ -161,12 +161,34 @@ class IrepController extends Controller
         return json_decode($value, true) ?? $value;
     }
 
+    /**
+     * Build a clean, URL-friendly slug from a title, appending a numeric
+     * suffix only when needed to keep it unique (e.g. "360-module-demo-2").
+     */
+    private function uniqueSlug(string $value, ?int $ignoreId = null): string
+    {
+        $base = Str::slug($value) ?: 'project';
+        $slug = $base;
+        $i    = 2;
+
+        while (
+            Project::where('slug', $slug)
+                ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
+                ->exists()
+        ) {
+            $slug = $base . '-' . $i;
+            $i++;
+        }
+
+        return $slug;
+    }
+
     private function createProject(Request $request): JsonResponse
     {
         $title = $request->input('title', 'Untitled');
         $project = Project::create([
             'title'         => $title,
-            'slug'          => Str::slug($title) . '-' . Str::random(5),
+            'slug'          => $this->uniqueSlug($title),
             'svg'           => $this->decodeSvg($request->input('svg', '')),
             'polygon_data'  => $this->decodeOrReturn($request->input('polygon_data')) ?? [],
             'images_360'    => $this->decodeOrReturn($request->input('images_360')) ?? [],
@@ -179,8 +201,16 @@ class IrepController extends Controller
     private function updateProject(Request $request): JsonResponse
     {
         $project = Project::findOrFail($request->input('project_id'));
+
+        $title   = $request->input('title', $project->title);
+        $slugRaw = $request->input('slug');
+        $slug    = ($slugRaw !== null && trim((string) $slugRaw) !== '')
+            ? $this->uniqueSlug($slugRaw, $project->id)
+            : $project->slug;
+
         $project->update([
-            'title'         => $request->input('title', $project->title),
+            'title'         => $title,
+            'slug'          => $slug,
             'svg'           => $this->decodeSvg($request->input('svg', $project->svg)),
             'polygon_data'  => $request->has('polygon_data') ? ($this->decodeOrReturn($request->input('polygon_data')) ?? []) : $project->polygon_data,
             'images_360'    => $request->has('images_360') ? ($this->decodeOrReturn($request->input('images_360')) ?? []) : $project->images_360,
@@ -1060,7 +1090,7 @@ class IrepController extends Controller
 
             $project = Project::create([
                 'title'         => $proj['title'],
-                'slug'          => Str::slug($proj['title']) . '-' . Str::random(5),
+                'slug'          => $this->uniqueSlug($proj['title']),
                 'svg'           => $proj['svg'] ?? '',
                 'polygon_data'  => [],
                 'images_360'    => $resolve360Images($proj['360images'] ?? null),
