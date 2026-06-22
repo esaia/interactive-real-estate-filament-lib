@@ -828,7 +828,7 @@ class IrepController extends Controller
         $allowedSort = ['id', 'name', 'email', 'phone', 'created_at'];
         if (!in_array($sortField, $allowedSort)) $sortField = 'created_at';
 
-        $query = Reservation::with(['flat.project', 'flat.floor'])
+        $query = Reservation::with(['flat.project', 'flat.floor', 'flat.block'])
             ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
                 $q2->where('name', 'like', "%$search%")
                    ->orWhere('email', 'like', "%$search%")
@@ -851,6 +851,8 @@ class IrepController extends Controller
             'offer_price'  => $r->flat?->offer_price,
             'flat_active'  => $r->flat?->is_active,
             'floor_number' => $r->flat?->floor?->floor_number,
+            'block_id'     => $r->flat?->block_id,
+            'block_name'   => $r->flat?->block?->title,
             'project_id'   => $r->flat?->project_id,
             'project_name' => $r->flat?->project?->title,
         ]);

@@ -279,6 +279,22 @@ onMounted(() => {
                   </div>
                 </div>
               </div>
+              <!-- Block row -->
+              <div
+                v-if="activeRecord?.block_name"
+                class="flex items-center justify-between border-b border-gray-100 px-4 py-3"
+              >
+                <span class="text-xs text-gray-500">Block</span>
+                <div class="text-right">
+                  <div class="text-sm font-medium text-gray-800">{{ activeRecord.block_name }}</div>
+                  <div
+                    v-if="activeRecord?.block_id && Number(activeRecord.block_id) > 0"
+                    class="text-xs text-gray-500"
+                  >
+                    ID {{ activeRecord.block_id }}
+                  </div>
+                </div>
+              </div>
               <!-- Flat row -->
               <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3">
                 <span class="text-xs text-gray-500">Flat</span>
