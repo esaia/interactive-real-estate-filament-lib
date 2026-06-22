@@ -23,6 +23,7 @@ const { is_360_flow, is_premium, is_gold } = storeToRefs(projectStore);
 
 const modelValue = defineModel<ProjectSettings>({ required: true });
 const title = defineModel<string>("title", { required: true });
+const slug = defineModel<string>("slug", { required: true });
 const projectImage = defineModel<imageInterface[] | null>("projectImage", {
     required: true,
 });
@@ -63,6 +64,14 @@ const pushToFormResponsesPage = () => {
 <template>
     <div class="space-y-4">
         <Input v-model="title" label="Project Title" class="w-full" />
+
+        <div class="w-full">
+            <Input v-model="slug" label="Project Slug (URL)" class="w-full" />
+            <p class="mt-1 text-xs text-gray-400">
+                Used in the project URL, e.g. <span class="font-medium">/project/{{ slug || "your-slug" }}</span>.
+                Leave unchanged to keep the current one.
+            </p>
+        </div>
 
         <div v-if="!is_360_flow || is360FlowDisabled" class="w-52">
             <UploadImg

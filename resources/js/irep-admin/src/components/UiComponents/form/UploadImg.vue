@@ -52,7 +52,7 @@ function addYoutubeLink() {
     if (!already) {
         imagesArray.value = [
             ...imagesArray.value,
-            { id: Date.now(), url, type: "youtube", filename: "youtube", alt: "", title: "" } as any,
+            { id: Date.now(), url, type: "youtube", mime: "youtube", filename: "youtube", alt: "", title: "" } as any,
         ];
     }
     youtubeInputValue.value = "";

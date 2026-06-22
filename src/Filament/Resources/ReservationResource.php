@@ -7,8 +7,8 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
-use Filament\Schemas\Components\Section as InfolistSection;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Schemas\Components\Section as InfolistSection;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
@@ -70,7 +70,7 @@ class ReservationResource extends Resource
                 TextColumn::make('email')->copyable()->placeholder('—'),
                 TextColumn::make('flat.conf')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn(string $state): string => match ($state) {
                         'available' => 'success',
                         'reserved'  => 'warning',
                         'sold'      => 'danger',
@@ -87,8 +87,8 @@ class ReservationResource extends Resource
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
-                            ->when($data['from'], fn ($q, $d) => $q->whereDate('created_at', '>=', $d))
-                            ->when($data['until'], fn ($q, $d) => $q->whereDate('created_at', '<=', $d));
+                            ->when($data['from'], fn($q, $d) => $q->whereDate('created_at', '>=', $d))
+                            ->when($data['until'], fn($q, $d) => $q->whereDate('created_at', '<=', $d));
                     }),
             ])
             ->actions([ViewAction::make(), DeleteAction::make()])

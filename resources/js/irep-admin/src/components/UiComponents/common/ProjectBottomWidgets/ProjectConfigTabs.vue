@@ -67,6 +67,7 @@ const activeTab = ref(1);
 const loading = ref(false);
 
 const projectTitle = ref("");
+const projectSlug = ref("");
 const projectImage = ref<imageInterface[] | null>(null);
 
 const projectConfig = ref<ProjectSettings>({
@@ -166,7 +167,7 @@ const updateProject = async () => {
   const params: any = {
     project_id: id.value,
     title: projectTitle.value,
-    slug: slug.value,
+    slug: projectSlug.value,
     svg: svgBase64,
     polygon_data: polygon_data.value,
     images_360: JSON.stringify(images360Payload)
@@ -279,6 +280,7 @@ watch(
 
 onMounted(() => {
   projectTitle.value = title.value || "";
+  projectSlug.value = slug.value || "";
   projectImage.value = project_image.value?.id ? [project_image.value] : null;
 });
 
@@ -343,6 +345,7 @@ defineExpose({
         v-if="activeTab === 1"
         v-model="projectConfig"
         v-model:title="projectTitle"
+        v-model:slug="projectSlug"
         v-model:projectImage="projectImage"
       />
 

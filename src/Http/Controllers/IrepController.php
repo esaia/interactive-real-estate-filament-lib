@@ -16,6 +16,7 @@ use IrepPlugin\FilamentIrep\Models\Reservation;
 use IrepPlugin\FilamentIrep\Models\Setting;
 use IrepPlugin\FilamentIrep\Models\Tooltip;
 use IrepPlugin\FilamentIrep\Models\Type;
+use Symfony\Component\HttpFoundation\Response;
 
 class IrepController extends Controller
 {
@@ -87,7 +88,7 @@ class IrepController extends Controller
         'irep_export_zip'                       => 'exportZip',
     ];
 
-    public function handle(Request $request): JsonResponse
+    public function handle(Request $request): Response
     {
         $action = $request->input('action', '');
 
@@ -161,12 +162,34 @@ class IrepController extends Controller
         return json_decode($value, true) ?? $value;
     }
 
+    /**
+     * Build a clean, URL-friendly slug from a title, appending a numeric
+     * suffix only when needed to keep it unique (e.g. "360-module-demo-2").
+     */
+    private function uniqueSlug(string $value, ?int $ignoreId = null): string
+    {
+        $base = Str::slug($value) ?: 'project';
+        $slug = $base;
+        $i    = 2;
+
+        while (
+            Project::where('slug', $slug)
+                ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
+                ->exists()
+        ) {
+            $slug = $base . '-' . $i;
+            $i++;
+        }
+
+        return $slug;
+    }
+
     private function createProject(Request $request): JsonResponse
     {
         $title = $request->input('title', 'Untitled');
         $project = Project::create([
             'title'         => $title,
-            'slug'          => Str::slug($title) . '-' . Str::random(5),
+            'slug'          => $this->uniqueSlug($title),
             'svg'           => $this->decodeSvg($request->input('svg', '')),
             'polygon_data'  => $this->decodeOrReturn($request->input('polygon_data')) ?? [],
             'images_360'    => $this->decodeOrReturn($request->input('images_360')) ?? [],
@@ -179,8 +202,16 @@ class IrepController extends Controller
     private function updateProject(Request $request): JsonResponse
     {
         $project = Project::findOrFail($request->input('project_id'));
+
+        $title   = $request->input('title', $project->title);
+        $slugRaw = $request->input('slug');
+        $slug    = ($slugRaw !== null && trim((string) $slugRaw) !== '')
+            ? $this->uniqueSlug($slugRaw, $project->id)
+            : $project->slug;
+
         $project->update([
-            'title'         => $request->input('title', $project->title),
+            'title'         => $title,
+            'slug'          => $slug,
             'svg'           => $this->decodeSvg($request->input('svg', $project->svg)),
             'polygon_data'  => $request->has('polygon_data') ? ($this->decodeOrReturn($request->input('polygon_data')) ?? []) : $project->polygon_data,
             'images_360'    => $request->has('images_360') ? ($this->decodeOrReturn($request->input('images_360')) ?? []) : $project->images_360,
@@ -929,15 +960,235 @@ class IrepController extends Controller
 
     // ─── Export / Import / Stubs ─────────────────────────────────────────────
 
-    private function exportZip(Request $request): JsonResponse
+    private function exportZip(Request $request): Response
     {
-        return response()->json(['success' => false, 'data' => 'Export not yet implemented.']);
+        $project = Project::with(['types', 'blocks', 'floors', 'flats', 'tooltips', 'meta'])
+            ->find($request->input('project_id'));
+
+        if (!$project) {
+            return response()->json(['success' => false, 'data' => 'Project not found.'], 404);
+        }
+
+        $disk = Storage::disk('public');
+
+        // Image registries (inverse of the importer's maps)
+        $imageMap      = []; // url        => zip relative path
+        $attachmentMap = []; // attach id  => url
+        $zipFiles      = []; // zip rel    => absolute source path
+        $pathToId      = []; // storage path => attach id (dedupe)
+        $nextId        = 1;
+
+        // Register an image by its storage path; returns a synthetic attachment id.
+        $register = function (?string $storagePath) use (
+            &$imageMap, &$attachmentMap, &$zipFiles, &$pathToId, &$nextId, $disk
+        ): ?string {
+            if (!$storagePath) return null;
+            $storagePath = ltrim($storagePath, '/');
+            if (isset($pathToId[$storagePath])) return $pathToId[$storagePath];
+
+            $abs = $disk->path($storagePath);
+            if (!is_file($abs)) return null;
+
+            $id     = (string) $nextId++;
+            $url    = '/storage/' . $storagePath;
+            $zipRel = 'images/' . $id . '-' . basename($storagePath);
+
+            $imageMap[$url]         = $zipRel;
+            $attachmentMap[$id]     = $url;
+            $zipFiles[$zipRel]      = $abs;
+            $pathToId[$storagePath] = $id;
+            return $id;
+        };
+
+        // Resolve the disk-relative storage path for an image entry. Entries come in
+        // two shapes: native ({id: "irep/images/x.png", url}) and WordPress-imported
+        // ({id: 3423314611, url: "/storage/irep/images/x.mp4", filename, sizes}). The
+        // `url` always holds the real /storage path, so prefer it; fall back to id.
+        $pathOf = function ($entry): ?string {
+            $candidate = null;
+            if (is_string($entry)) {
+                $candidate = $entry;
+            } elseif (is_array($entry)) {
+                foreach (['url', 'id', 'filename'] as $key) {
+                    $val = $entry[$key] ?? null;
+                    if (is_string($val) && $val !== '') { $candidate = $val; break; }
+                }
+            }
+            if (!is_string($candidate) || $candidate === '') return null;
+            if (($pos = strpos($candidate, '/storage/')) !== false) {
+                $candidate = substr($candidate, $pos + strlen('/storage/'));
+            }
+            return ltrim($candidate, '/') ?: null;
+        };
+
+        // First image of a single-image field ({id,url}[] or string) → attach id string.
+        $firstId = function ($field) use ($register, $pathOf): string {
+            $first = null;
+            if (is_string($field) && $field !== '') {
+                $first = $field;
+            } elseif (is_array($field) && !empty($field)) {
+                $first = $field[0] ?? reset($field);
+            }
+            return (string) ($register($pathOf($first)) ?? '');
+        };
+
+        // Multi-image field ({id,url}[]) → JSON array of attach ids (importer json_decodes).
+        $idJson = function ($field) use ($register, $pathOf): string {
+            $ids = [];
+            if (is_array($field)) {
+                foreach ($field as $img) {
+                    $rid = $register($pathOf($img));
+                    if ($rid !== null) $ids[] = $rid;
+                }
+            }
+            return json_encode($ids);
+        };
+
+        // 360 images ({img,svg,polygon_data}[]) — img is a /storage/... url.
+        $images360 = function ($field) use ($register, $pathOf): array {
+            $out = [];
+            if (is_array($field)) {
+                foreach ($field as $item) {
+                    if (!is_array($item)) continue;
+                    $img = $item['img'] ?? '';
+                    $sp  = $pathOf($img);
+                    $rid = $register($sp);
+                    $out[] = [
+                        'img'          => $rid !== null ? '/storage/' . $sp : $img,
+                        'svg'          => $item['svg'] ?? '',
+                        'polygon_data' => $item['polygon_data'] ?? [],
+                    ];
+                }
+            }
+            return $out;
+        };
+
+        $strId = fn ($v) => $v !== null ? (string) $v : null;
+
+        $data = [
+            'irep_project' => [
+                'id'            => (string) $project->id,
+                'title'         => $project->title,
+                'svg'           => $project->svg ?? '',
+                'polygon_data'  => $project->polygon_data ?? [],
+                '360images'     => json_encode($images360($project->images_360)),
+                'project_image' => $firstId($project->project_image),
+            ],
+            'irep_types'        => [],
+            'irep_blocks'       => [],
+            'irep_floors'       => [],
+            'irep_flats'        => [],
+            'irep_tooltip'      => [],
+            'irep_project_meta' => [],
+        ];
+
+        foreach ($project->types as $t) {
+            $data['irep_types'][] = [
+                'id'          => (string) $t->id,
+                'title'       => $t->title,
+                'teaser'      => $t->teaser,
+                'area_m2'     => $t->area_m2,
+                'rooms_count' => $t->rooms_count,
+                'image_2d'    => $idJson($t->image_2d),
+                'image_3d'    => $idJson($t->image_3d),
+                'gallery'     => $idJson($t->gallery),
+                'other'       => $t->other ?? [],
+            ];
+        }
+
+        foreach ($project->blocks as $b) {
+            $data['irep_blocks'][] = [
+                'id'           => (string) $b->id,
+                'title'        => $b->title,
+                'is_active'    => $b->is_active,
+                'conf'         => $b->conf,
+                'svg'          => $b->svg ?? '',
+                'polygon_data' => $b->polygon_data ?? [],
+                '360images'    => json_encode($images360($b->images_360)),
+                'block_image'  => $firstId($b->block_image),
+            ];
+        }
+
+        foreach ($project->floors as $f) {
+            $data['irep_floors'][] = [
+                'id'           => (string) $f->id,
+                'block_id'     => $strId($f->block_id),
+                'floor_number' => $f->floor_number,
+                'title'        => $f->title,
+                'conf'         => $f->conf,
+                'svg'          => $f->svg ?? '',
+                'polygon_data' => $f->polygon_data ?? [],
+                'floor_image'  => $firstId($f->floor_image),
+            ];
+        }
+
+        foreach ($project->flats as $fl) {
+            $data['irep_flats'][] = [
+                'id'            => (string) $fl->id,
+                'block_id'      => $strId($fl->block_id),
+                'floor_id'      => $strId($fl->floor_id),
+                'type_id'       => $strId($fl->type_id),
+                'flat_number'   => $fl->flat_number,
+                'is_active'     => $fl->is_active,
+                'conf'          => $fl->conf,
+                'price'         => $fl->price,
+                'offer_price'   => $fl->offer_price,
+                'request_price' => $fl->request_price,
+                'click_action'  => $fl->click_action,
+                'follow_link'   => $fl->follow_link ?? null,
+                // importer treats '0'/falsy as false, anything else as true
+                'use_type'      => in_array($fl->use_type, ['true', true, 1, '1'], true) ? '1' : '0',
+                'type'          => $fl->flat_type ?? null,
+                'files'         => $idJson($fl->files),
+            ];
+        }
+
+        foreach ($project->tooltips as $tt) {
+            $data['irep_tooltip'][] = [
+                'id'    => (string) $tt->id,
+                'title' => $tt->title,
+                'data'  => $tt->data ?? [],
+            ];
+        }
+
+        foreach ($project->meta as $m) {
+            $data['irep_project_meta'][] = [
+                'meta_key'   => $m->meta_key,
+                'meta_value' => $m->meta_value,
+            ];
+        }
+
+        $jsonFlags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
+        $tmpZip    = tempnam(sys_get_temp_dir(), 'irep_export_');
+
+        $zip = new \ZipArchive();
+        if ($zip->open($tmpZip, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            return response()->json(['success' => false, 'data' => 'Could not create ZIP file.'], 500);
+        }
+
+        $zip->addFromString('project_data.json', json_encode($data, $jsonFlags));
+        $zip->addFromString('image_map.json', json_encode($imageMap, $jsonFlags));
+        $zip->addFromString('attachment_id_map.json', json_encode($attachmentMap, $jsonFlags));
+        foreach ($zipFiles as $rel => $abs) {
+            $zip->addFile($abs, $rel);
+        }
+        $zip->close();
+
+        return response()
+            ->download($tmpZip, 'project_' . $project->id . '.zip', ['Content-Type' => 'application/zip'])
+            ->deleteFileAfterSend(true);
     }
 
     private function importProject(Request $request): JsonResponse
     {
         $file = $request->file('file');
-        if (!$file || strtolower($file->getClientOriginalExtension()) !== 'zip') {
+        if (!$file) {
+            return response()->json(['success' => false, 'data' => 'No file was received. It may exceed the upload size limit (upload_max_filesize / post_max_size).'], 422);
+        }
+        if (!$file->isValid()) {
+            return response()->json(['success' => false, 'data' => 'Upload failed (PHP error code ' . $file->getError() . '): ' . $file->getErrorMessage()], 422);
+        }
+        if (strtolower($file->getClientOriginalExtension()) !== 'zip') {
             return response()->json(['success' => false, 'data' => 'Please upload a valid ZIP file.'], 422);
         }
 
@@ -946,8 +1197,22 @@ class IrepController extends Controller
 
         try {
             $zip = new \ZipArchive();
-            if ($zip->open($file->getPathname()) !== true) {
-                return response()->json(['success' => false, 'data' => 'Failed to open ZIP file.'], 422);
+            $opened = $zip->open($file->getPathname());
+            if ($opened !== true) {
+                $reasons = [
+                    \ZipArchive::ER_NOZIP   => 'not a zip archive',
+                    \ZipArchive::ER_INCONS  => 'zip archive inconsistent',
+                    \ZipArchive::ER_CRC     => 'CRC error (file corrupt/truncated)',
+                    \ZipArchive::ER_OPEN    => 'cannot open file',
+                    \ZipArchive::ER_READ    => 'read error',
+                    \ZipArchive::ER_MEMORY  => 'out of memory',
+                ];
+                $detail = $reasons[$opened] ?? ('error code ' . $opened);
+                $size   = @filesize($file->getPathname());
+                return response()->json([
+                    'success' => false,
+                    'data'    => "Failed to open ZIP file: {$detail} (received {$size} bytes).",
+                ], 422);
             }
             $zip->extractTo($tmpDir);
             $zip->close();
@@ -1060,7 +1325,7 @@ class IrepController extends Controller
 
             $project = Project::create([
                 'title'         => $proj['title'],
-                'slug'          => Str::slug($proj['title']) . '-' . Str::random(5),
+                'slug'          => $this->uniqueSlug($proj['title']),
                 'svg'           => $proj['svg'] ?? '',
                 'polygon_data'  => [],
                 'images_360'    => $resolve360Images($proj['360images'] ?? null),
