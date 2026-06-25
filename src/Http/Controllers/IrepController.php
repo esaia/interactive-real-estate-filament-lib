@@ -875,7 +875,15 @@ class IrepController extends Controller
         }
 
         $file = $request->file('file');
-        $path = $file->store('irep/images', 'public');
+
+        // Preserve the original filename (so numeric names like 000, 001… stay
+        // sortable) and append a short unique suffix to avoid collisions.
+        $original  = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+        $ext       = $file->getClientOriginalExtension() ?: $file->guessExtension();
+        $base      = Str::slug($original) ?: 'image';
+        $filename  = $base . '-' . Str::lower(Str::random(8)) . ($ext ? '.' . $ext : '');
+
+        $path = $file->storeAs('irep/images', $filename, 'public');
         $url  = '/storage/' . $path;
 
         $w = 0;
