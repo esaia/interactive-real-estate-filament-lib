@@ -16,6 +16,7 @@ use IrepPlugin\FilamentIrep\Models\Reservation;
 use IrepPlugin\FilamentIrep\Models\Setting;
 use IrepPlugin\FilamentIrep\Models\Tooltip;
 use IrepPlugin\FilamentIrep\Models\Type;
+use IrepPlugin\FilamentIrep\Support\ImageOptimizer;
 use Symfony\Component\HttpFoundation\Response;
 
 class IrepController extends Controller
@@ -881,14 +882,26 @@ class IrepController extends Controller
         $original  = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
         $ext       = $file->getClientOriginalExtension() ?: $file->guessExtension();
         $base      = Str::slug($original) ?: 'image';
-        $filename  = $base . '-' . Str::lower(Str::random(8)) . ($ext ? '.' . $ext : '');
+        $stem      = $base . '-' . Str::lower(Str::random(8));
+        $mime      = $file->getMimeType() ?? '';
 
-        $path = $file->storeAs('irep/images', $filename, 'public');
-        $url  = '/storage/' . $path;
+        // Raster images are downscaled and re-encoded to WebP; anything else
+        // (svg, gif, pdf, mp4) is stored exactly as uploaded.
+        $webp = ImageOptimizer::isConvertible($mime)
+            ? ImageOptimizer::toWebp($file->getRealPath())
+            : null;
+
+        if ($webp !== null) {
+            $path = 'irep/images/' . $stem . '.webp';
+            Storage::disk('public')->put($path, $webp, 'public');
+        } else {
+            $path = $file->storeAs('irep/images', $stem . ($ext ? '.' . $ext : ''), 'public');
+        }
+
+        $url = '/storage/' . $path;
 
         $w = 0;
         $h = 0;
-        $mime = $file->getMimeType() ?? '';
         if (!str_contains($mime, 'pdf') && !str_contains($mime, 'video')) {
             [$w, $h] = @getimagesize(Storage::disk('public')->path($path)) ?: [0, 0];
         }
@@ -1246,9 +1259,24 @@ class IrepController extends Controller
                     return null;
                 }
                 $originalName = basename($zipRelPath);
-                $storagePath  = 'irep/images/' . $originalName;
-                if (!$disk->exists($storagePath)) {
-                    $disk->put($storagePath, file_get_contents($fullPath));
+                $mime         = @mime_content_type($fullPath) ?: '';
+
+                // Bulk WordPress imports are the biggest source of oversized
+                // images, so convert them on the way in like normal uploads.
+                $webp = ImageOptimizer::isConvertible($mime)
+                    ? ImageOptimizer::toWebp($fullPath)
+                    : null;
+
+                if ($webp !== null) {
+                    $storagePath = 'irep/images/' . pathinfo($originalName, PATHINFO_FILENAME) . '.webp';
+                    if (!$disk->exists($storagePath)) {
+                        $disk->put($storagePath, $webp);
+                    }
+                } else {
+                    $storagePath = 'irep/images/' . $originalName;
+                    if (!$disk->exists($storagePath)) {
+                        $disk->put($storagePath, file_get_contents($fullPath));
+                    }
                 }
                 $zipPathToStoragePath[$zipRelPath] = $storagePath;
                 return $storagePath;
