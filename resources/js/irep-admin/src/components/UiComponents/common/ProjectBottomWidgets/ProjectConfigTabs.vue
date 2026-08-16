@@ -104,7 +104,11 @@ const projectConfig = ref<ProjectSettings>({
   receiveFormsOnEmail: false,
   shareableLink: false,
   removeWatermark: false,
-  pathsHoverFill: false
+  pathsHoverFill: false,
+  is360Loop: true,
+  is360Reverse: false,
+  sidebarOpenDefault: false,
+  imageChangeSpeed: 50
 });
 
 const styleColors = ref({
@@ -138,6 +142,10 @@ const updateProject = async () => {
     { key: "shareable_link", value: projectConfig.value.shareableLink },
     { key: "remove_watermark", value: projectConfig.value.removeWatermark },
     { key: "paths_hover_fill", value: projectConfig.value.pathsHoverFill },
+    { key: "is_360_loop", value: projectConfig.value.is360Loop },
+    { key: "is_360_reverse", value: projectConfig.value.is360Reverse },
+    { key: "sidebar_open_default", value: projectConfig.value.sidebarOpenDefault },
+    { key: "image_change_speed", value: projectConfig.value.imageChangeSpeed },
     { key: "mobile_breakpoint", value: mobile_breakpoint.value }
   ];
 
@@ -330,6 +338,10 @@ watch(
     projectConfig.value.shareableLink = metaStore.getMeta("shareable_link")?.meta_value === "true";
     projectConfig.value.removeWatermark = metaStore.getMeta("remove_watermark")?.meta_value === "true";
     projectConfig.value.pathsHoverFill = metaStore.getMeta("paths_hover_fill")?.meta_value === "true";
+    projectConfig.value.is360Loop = metaStore.getMeta("is_360_loop")?.meta_value !== "false";
+    projectConfig.value.is360Reverse = metaStore.getMeta("is_360_reverse")?.meta_value === "true";
+    projectConfig.value.sidebarOpenDefault = metaStore.getMeta("sidebar_open_default")?.meta_value === "true";
+    projectConfig.value.imageChangeSpeed = Number(metaStore.getMeta("image_change_speed")?.meta_value) || 50;
 
     styleColors.value.available_flat = metaStore.getMeta("available_flat_color")?.meta_value.toString() || "";
     styleColors.value.path = metaStore.getMeta("path_color")?.meta_value.toString() || "";

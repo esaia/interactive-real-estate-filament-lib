@@ -275,6 +275,14 @@ export interface ProjectSettings {
   removeWatermark: boolean;
   /** GOLD: SVG path fill only on hover (stored as meta `paths_hover_fill`). */
   pathsHoverFill: boolean;
+  /** 360: wrap around at the ends of the image set (`is_360_loop`). */
+  is360Loop: boolean;
+  /** 360: flip the rotation direction (`is_360_reverse`). */
+  is360Reverse: boolean;
+  /** 360: start with the apartments sidebar open (`sidebar_open_default`). */
+  sidebarOpenDefault: boolean;
+  /** 360: 1–100 dial for how fast dragging changes frames (`image_change_speed`). */
+  imageChangeSpeed: number;
 }
 
 /**

@@ -14,6 +14,7 @@ import Modal from "../../Modal.vue";
 import { useProjectStore } from "@/src/stores/useProject";
 import { storeToRefs } from "pinia";
 import Toggle from "../../form/Toggle.vue";
+import Range from "../../form/Range.vue";
 import LicensePlanBadge from "../LicensePlanBadge.vue";
 
 const metaStore = useMetaStore();
@@ -64,6 +65,10 @@ const requestCallbackValue = bindField("requestCallback");
 const redirectToCallbackUrlValue = bindField("redirectToCallbackUrl");
 const receiveFormsOnEmailValue = bindField("receiveFormsOnEmail");
 const pathsHoverFillValue = bindField("pathsHoverFill");
+const is360LoopValue = bindField("is360Loop");
+const is360ReverseValue = bindField("is360Reverse");
+const sidebarOpenDefaultValue = bindField("sidebarOpenDefault");
+const imageChangeSpeedValue = bindField("imageChangeSpeed");
 const exampleImage = ref("");
 
 const is360FlowDisabled = computed(() => !irePlugin?.building_360_addon);
@@ -267,11 +272,53 @@ const pushToFormResponsesPage = () => {
                     />
                 </div>
 
-                <Checkbox
-                    v-model="pathsHoverFillValue"
-                    title="SVG Path visible only on hover"
-                    class="mt-4 w-fit"
-                />
+                <div class="mt-4 space-y-2">
+                    <Checkbox
+                        v-model="is360LoopValue"
+                        title="360 loop"
+                        class="w-fit"
+                    />
+
+                    <div>
+                        <Checkbox
+                            v-model="is360ReverseValue"
+                            title="Reverse rotation direction"
+                            class="w-fit"
+                        />
+                        <p class="ml-7 text-xs text-gray-400">
+                            Enable if dragging/arrows rotate the wrong way for
+                            this image set
+                        </p>
+                    </div>
+
+                    <Checkbox
+                        v-model="pathsHoverFillValue"
+                        title="SVG Path visible only on hover"
+                        class="w-fit"
+                    />
+
+                    <div>
+                        <Checkbox
+                            v-model="sidebarOpenDefaultValue"
+                            title="Apartments sidebar open by default"
+                            class="w-fit"
+                        />
+                        <p class="ml-7 text-xs text-gray-400">
+                            Uncheck to start with the sidebar collapsed on
+                            desktop
+                        </p>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <Range
+                        v-model="imageChangeSpeedValue"
+                        label="Image change speed"
+                        min="1"
+                        max="100"
+                        step="1"
+                    />
+                </div>
             </div>
 
             <div
