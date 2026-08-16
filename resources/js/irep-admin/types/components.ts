@@ -266,6 +266,8 @@ export interface ProjectSettings {
   chosenPriceSeparator: SelectValue;
   chosenSeparator: SelectValue;
   isPriceRounded: boolean;
+  /** Hides the "price per m²/ft²" line under the price in the flat modal. */
+  hidePricePerArea: boolean;
   requestCallback: boolean;
   redirectToCallbackUrl: boolean;
   receiveFormsOnEmail: boolean;

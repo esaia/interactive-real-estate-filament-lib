@@ -98,6 +98,7 @@ const projectConfig = ref<ProjectSettings>({
   chosenPriceSeparator: { title: "dot (.)", value: "dot" },
   chosenSeparator: { title: "dot (.)", value: "dot" },
   isPriceRounded: false,
+  hidePricePerArea: false,
   requestCallback: false,
   redirectToCallbackUrl: false,
   receiveFormsOnEmail: false,
@@ -130,6 +131,7 @@ const updateProject = async () => {
     { key: "price_separator", value: projectConfig.value.chosenPriceSeparator.value },
     { key: "separator", value: projectConfig.value.chosenSeparator.value },
     { key: "price_rounded", value: projectConfig.value.isPriceRounded },
+    { key: "hide_price_per_area", value: projectConfig.value.hidePricePerArea },
     { key: "redirect_to_callback_url", value: projectConfig.value.redirectToCallbackUrl },
     { key: "request_callback", value: projectConfig.value.requestCallback },
     { key: "receive_forms_on_email", value: projectConfig.value.receiveFormsOnEmail },
@@ -321,6 +323,7 @@ watch(
     }
 
     projectConfig.value.isPriceRounded = metaStore.getMeta("price_rounded")?.meta_value === "true";
+    projectConfig.value.hidePricePerArea = metaStore.getMeta("hide_price_per_area")?.meta_value === "true";
     projectConfig.value.requestCallback = metaStore.getMeta("request_callback")?.meta_value === "true";
     projectConfig.value.redirectToCallbackUrl = metaStore.getMeta("redirect_to_callback_url")?.meta_value === "true";
     projectConfig.value.receiveFormsOnEmail = metaStore.getMeta("receive_forms_on_email")?.meta_value === "true";

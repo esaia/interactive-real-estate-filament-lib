@@ -57,6 +57,7 @@ const chosenAreaValue = bindField("chosenArea");
 const chosenPriceSeparatorValue = bindField("chosenPriceSeparator");
 const chosenSeparatorValue = bindField("chosenSeparator");
 const isPriceRoundedValue = bindField("isPriceRounded");
+const hidePricePerAreaValue = bindField("hidePricePerArea");
 const removeWatermarkValue = bindField("removeWatermark");
 const shareableLinkValue = bindField("shareableLink");
 const requestCallbackValue = bindField("requestCallback");
@@ -142,6 +143,12 @@ const pushToFormResponsesPage = () => {
             <Checkbox
                 v-model="isPriceRoundedValue"
                 title="Rounded Price"
+                class="!w-fit"
+            />
+
+            <Checkbox
+                v-model="hidePricePerAreaValue"
+                title="Hide price m/ft² in flat modal"
                 class="!w-fit"
             />
 
