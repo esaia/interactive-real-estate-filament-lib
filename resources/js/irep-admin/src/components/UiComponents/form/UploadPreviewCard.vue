@@ -7,10 +7,13 @@ withDefaults(
     isSelected?: boolean;
     showDrag?: boolean;
     hasPolygons?: boolean;
+    /** Off for single-image fields, where "Replace" already covers the change. */
+    showDelete?: boolean;
   }>(),
   {
     isSelected: false,
-    showDrag: false
+    showDrag: false,
+    showDelete: true
   }
 );
 
@@ -46,17 +49,24 @@ const emit = defineEmits<{
       class="pointer-events-none absolute left-0 top-0 h-full w-full rounded-md bg-black/0 transition-all duration-200 group-hover:bg-black/25"
     ></div>
 
+    <!-- Kept in the corner rather than over the middle of the card: the card
+         itself is a select target, so a centred button invites misclicks. -->
     <button
+      v-if="showDelete"
       type="button"
-      class="absolute left-1/2 top-1/2 z-40 shrink-0 -translate-x-1/2 translate-y-full rounded-md bg-white/90 p-1.5 text-red-500 opacity-0 shadow-sm transition-all duration-200 hover:bg-red-500 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 group-hover:-translate-y-1/2 group-hover:opacity-100"
+      class="absolute right-1 top-1 z-40 shrink-0 rounded-md bg-white/90 p-1 text-red-500 opacity-0 shadow-sm transition-all duration-200 hover:bg-red-500 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 group-hover:opacity-100"
       title="Remove image"
       aria-label="Remove image"
       @click.stop="emit('delete')"
     >
-      <Delete class="size-5" />
+      <Delete class="size-4" />
     </button>
 
-    <div v-if="hasPolygons" class="absolute left-1 top-1 size-1.5 rounded-full bg-orange-400"></div>
+    <div
+      v-if="hasPolygons"
+      class="absolute left-1 top-1 size-1.5 rounded-full bg-orange-400"
+      title="This image has SVG polygons drawn on it"
+    ></div>
   </div>
 </template>
 

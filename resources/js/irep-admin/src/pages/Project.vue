@@ -15,6 +15,7 @@ import Advertisements from "../components/UiComponents/common/advertisements.vue
 import ProjectConfigTabs from "../components/UiComponents/common/ProjectBottomWidgets/ProjectConfigTabs.vue";
 import Button from "../components/UiComponents/form/Button.vue";
 import Upload360Images from "../components/UiComponents/projects/Upload360Images.vue";
+import AdditionalViews from "../components/UiComponents/projects/AdditionalViews.vue";
 const projectStore = useProjectStore();
 const floorsStore = useFloorsStore();
 const blockStore = useBlocksStore();
@@ -33,6 +34,11 @@ const {
     selected_360_image,
     images_360,
     selected_360_image_index,
+    selected_view,
+    selected_view_index,
+    selected_view_mode,
+    activeCanvas,
+    mobileSvgRef,
 } = storeToRefs(projectStore);
 
 const loading = ref(true);
@@ -63,6 +69,16 @@ const exitPreview = async () => {
     await fetchAllData();
 };
 
+// The canvas ref of whatever the editor is drawing on right now.
+const activeSvgRef = computed(() => {
+    const view = selected_view.value;
+    if (!view) {
+        return selected_view_mode.value === "mobile" ? mobileSvgRef.value : svgRef.value;
+    }
+
+    return selected_view_mode.value === "mobile" ? view.mobileSvgRef : view.svgRef;
+});
+
 const deleteG = (key: string) => {
     activeGroup.value = null;
     if (is_360_flow.value && selected_360_image.value) {
@@ -71,8 +87,8 @@ const deleteG = (key: string) => {
         return;
     }
 
-    projectStore.removePoligonItem(key);
-    svgRef.value?.querySelector(`#${key}`)?.remove();
+    projectStore.removeViewPolygonItem(key);
+    activeSvgRef.value?.querySelector(`#${key}`)?.remove();
 };
 
 const setSelected360SvgRef = (svgContainer: any) => {
@@ -124,21 +140,25 @@ onMounted(fetchAllData);
             "
         />
 
+        <!-- One canvas for whichever view (and desktop/mobile image) is selected -->
         <Canvas
             v-else
-            :key="canvasKey"
-            :projectImage="project_image?.url || ''"
-            :polygon_data="polygon_data"
-            :svgRef="svgRef"
-            :svg="svg"
+            :key="`${canvasKey}-${selected_view_index}-${selected_view_mode}`"
+            :projectImage="activeCanvas.image?.url || ''"
+            :polygon_data="activeCanvas.polygon_data"
+            :svgRef="activeSvgRef"
+            :svg="activeCanvas.svg"
             :activeGroup="activeGroup"
             :isFloorsCanvas="false"
-            @set-svg-ref="(svgContainer: any) => (svgRef = svgContainer)"
+            @set-svg-ref="
+                (svgContainer: any) => projectStore.setActiveSvgRef(svgContainer)
+            "
             @set-active-g="(gTag: any) => (activeGroup = gTag)"
             @delete-g="(key: any) => deleteG(key)"
-            @add-polygon-data="(key: any) => projectStore.addPolygonData(key)"
+            @add-polygon-data="(key: any) => projectStore.addViewPolygonData(key)"
             @update-polygon-data="
-                (key: any, data: any) => projectStore.editpoligonData(key, data)
+                (key: any, data: any) =>
+                    projectStore.editViewPolygonData(key, data)
             "
         />
 
@@ -157,6 +177,8 @@ onMounted(fetchAllData);
             required
             multiple
         />
+
+        <AdditionalViews v-if="!showPreview && !is_360_flow" />
 
         <ModalBoxes v-if="!showPreview" />
 

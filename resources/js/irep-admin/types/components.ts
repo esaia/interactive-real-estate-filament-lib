@@ -66,6 +66,11 @@ export interface ProjectInterface {
   title: string;
   svg: string;
   project_image: imageInterface[];
+  mobile_image?: imageInterface[] | null;
+  mobile_svg?: string | null;
+  mobile_polygon_data?: PolygonDataCollection[] | null;
+  view_label?: string | null;
+  views?: ProjectViewInterface[] | null;
   slug: string;
   polygon_data: PolygonDataCollection[];
   created_at: string;
@@ -252,6 +257,10 @@ export interface ProjectSettings {
   chosenTooltip: string;
   chooseFlatPreview: string;
   chooseFlatPreviewOneStyle: string;
+  /** "2d" | "3d" — plan the flat modal opens on (meta `flat_preview_default_plan`). */
+  flatModalDefaultPlan: string;
+  /** "2d" | "3d" — plan the flat cards show (meta `flat_list_default_plan`). */
+  flatListDefaultPlan: string;
   chosenCurrency: SelectValue;
   chosenArea: SelectValue;
   chosenPriceSeparator: SelectValue;
@@ -264,6 +273,23 @@ export interface ProjectSettings {
   removeWatermark: boolean;
   /** GOLD: SVG path fill only on hover (stored as meta `paths_hover_fill`). */
   pathsHoverFill: boolean;
+}
+
+/**
+ * An additional view of a project (view 2 and up): its own image, optional
+ * mobile-specific image, label and SVG polygons. View 1 lives on the project
+ * itself (project_image / mobile_image / view_label / svg / polygon_data).
+ */
+export interface ProjectViewInterface {
+  label: string;
+  image: imageInterface | null;
+  mobile_image: imageInterface | null;
+  svg: string;
+  polygon_data: PolygonDataCollection[];
+  mobile_svg: string;
+  mobile_polygon_data: PolygonDataCollection[];
+  svgRef: HTMLDivElement | null;
+  mobileSvgRef: HTMLDivElement | null;
 }
 
 export interface Image360Interface {

@@ -14,6 +14,10 @@ import LicensePlanBadge from "../components/UiComponents/common/LicensePlanBadge
 const projectStore = useProjectStore();
 const { is_gold } = storeToRefs(projectStore);
 
+// On a project page the list belongs to that project; the projects overview
+// keeps showing responses from every project.
+const projectID = new URLSearchParams(window.location.search).get("project");
+
 const searchRecord = ref("");
 const records = ref<any>();
 const sortField = ref("created_at");
@@ -45,7 +49,8 @@ const fetchRecords = async () => {
       sort_order: sortOrder.value,
       page: currentPage.value,
       per_page: perPage.value,
-      search: searchRecord.value
+      search: searchRecord.value,
+      project_id: projectID
     });
 
     if (!data.success) {

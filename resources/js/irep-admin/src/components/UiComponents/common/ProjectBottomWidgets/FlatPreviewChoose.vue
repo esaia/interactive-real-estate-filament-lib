@@ -4,6 +4,13 @@ import RadioCards from "../../form/RadioCards.vue";
 
 const flatPreviewModel = defineModel<string>();
 const oneStyleModel = defineModel<string>("oneStyle");
+const modalPlanModel = defineModel<string>("modalPlan");
+const listPlanModel = defineModel<string>("listPlan");
+
+const planOptions = [
+  { value: "2d", label: "2D plan" },
+  { value: "3d", label: "3D plan" },
+];
 
 type TooltipOption = {
   value: number;
@@ -48,6 +55,32 @@ const styleOptions = [
         :columns="'grid-cols-2'"
         :options="styleOptions.map((option) => ({ value: option.value.toString(), label: option.label }))"
       />
+    </div>
+
+    <div class="border-t border-gray-200 pt-4">
+      <RadioCards
+        v-model="modalPlanModel"
+        label="Default plan shown in flat modal"
+        name="flatModalDefaultPlan"
+        :options="planOptions"
+      />
+      <p class="mt-1.5 text-xs text-gray-400">
+        When a flat has both 2D and 3D images, the modal opens on this plan. If the chosen
+        plan has no image, the other one is shown.
+      </p>
+    </div>
+
+    <div class="border-t border-gray-200 pt-4">
+      <RadioCards
+        v-model="listPlanModel"
+        label="Default plan shown in grid list"
+        name="flatListDefaultPlan"
+        :options="planOptions"
+      />
+      <p class="mt-1.5 text-xs text-gray-400">
+        When a flat has both 2D and 3D images, the flat cards in the list show this plan. If
+        the chosen plan has no image, the other one is shown.
+      </p>
     </div>
   </div>
 </template>

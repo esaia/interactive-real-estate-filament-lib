@@ -60,8 +60,25 @@ const showPreview = defineModel<boolean>({ required: true });
 const projectStore = useProjectStore();
 const metaStore = useMetaStore();
 
-const { id, title, slug, polygon_data, svgRef, activeGroup, project_image, is_360_flow, images_360 } =
-  storeToRefs(projectStore);
+const {
+  id,
+  title,
+  slug,
+  polygon_data,
+  svgRef,
+  activeGroup,
+  project_image,
+  is_360_flow,
+  images_360,
+  svg,
+  views,
+  view_label,
+  mobile_image,
+  mobile_svg,
+  mobile_polygon_data,
+  mobileSvgRef,
+  mobile_breakpoint
+} = storeToRefs(projectStore);
 
 const activeTab = ref(1);
 const loading = ref(false);
@@ -74,6 +91,8 @@ const projectConfig = ref<ProjectSettings>({
   chosenTooltip: "1",
   chooseFlatPreview: "1",
   chooseFlatPreviewOneStyle: "1",
+  flatModalDefaultPlan: "2d",
+  flatListDefaultPlan: "3d",
   chosenCurrency: { title: "🇺🇸 USD - $", value: "usd" },
   chosenArea: { title: "m", value: "m" },
   chosenPriceSeparator: { title: "dot (.)", value: "dot" },
@@ -104,6 +123,8 @@ const updateProject = async () => {
     { key: "tooltip", value: projectConfig.value.chosenTooltip },
     { key: "flat_preview", value: projectConfig.value.chooseFlatPreview },
     { key: "flat_preview_one_style", value: projectConfig.value.chooseFlatPreviewOneStyle },
+    { key: "flat_preview_default_plan", value: projectConfig.value.flatModalDefaultPlan },
+    { key: "flat_list_default_plan", value: projectConfig.value.flatListDefaultPlan },
     { key: "currency", value: projectConfig.value.chosenCurrency.value },
     { key: "area_unit", value: projectConfig.value.chosenArea.value },
     { key: "price_separator", value: projectConfig.value.chosenPriceSeparator.value },
@@ -114,7 +135,8 @@ const updateProject = async () => {
     { key: "receive_forms_on_email", value: projectConfig.value.receiveFormsOnEmail },
     { key: "shareable_link", value: projectConfig.value.shareableLink },
     { key: "remove_watermark", value: projectConfig.value.removeWatermark },
-    { key: "paths_hover_fill", value: projectConfig.value.pathsHoverFill }
+    { key: "paths_hover_fill", value: projectConfig.value.pathsHoverFill },
+    { key: "mobile_breakpoint", value: mobile_breakpoint.value }
   ];
 
   const styleMetas = Object.entries(styleColors.value).reduce(
@@ -160,6 +182,34 @@ const updateProject = async () => {
     );
   }
 
+  // Each view draws on its own canvas (desktop and mobile separately), and only
+  // the mounted one holds live markup — snapshot it before saving.
+  const svgFromRef = async (container: HTMLDivElement | null) => {
+    if (!container) return null;
+
+    resetCanvasAfterSave(container);
+
+    const element = container.querySelector("svg");
+    return element ? await toBase64(element) : null;
+  };
+
+  const viewsPayload = await Promise.all(
+    views.value.map(async (view) => {
+      const { svgRef: viewSvgRef, mobileSvgRef: viewMobileSvgRef, ...rest } = view;
+
+      const desktopSvg = await svgFromRef(viewSvgRef);
+      const mobileViewSvg = await svgFromRef(viewMobileSvgRef);
+
+      return {
+        ...rest,
+        svg: desktopSvg ?? rest.svg,
+        mobile_svg: mobileViewSvg ?? rest.mobile_svg
+      };
+    })
+  );
+
+  const mainMobileSvg = await svgFromRef(mobileSvgRef.value);
+
   const svgElement = svgRef.value?.querySelector("svg");
 
   const svgBase64 = await toBase64(svgElement);
@@ -168,9 +218,16 @@ const updateProject = async () => {
     project_id: id.value,
     title: projectTitle.value,
     slug: projectSlug.value,
-    svg: svgBase64,
+    // While an additional view is on the canvas, view 1's markup lives in the
+    // store rather than the DOM — sending the empty canvas would erase it.
+    svg: svgRef.value ? svgBase64 : svg.value,
     polygon_data: polygon_data.value,
-    images_360: JSON.stringify(images360Payload)
+    images_360: JSON.stringify(images360Payload),
+    views: JSON.stringify(viewsPayload),
+    view_label: view_label.value ?? "",
+    mobile_image: JSON.stringify(mobile_image.value ? [mobile_image.value] : []),
+    mobile_svg: mainMobileSvg ?? mobile_svg.value ?? "",
+    mobile_polygon_data: mobile_polygon_data.value ?? []
   };
 
   if (project_image.value) {
@@ -230,6 +287,10 @@ watch(
     projectConfig.value.chosenTooltip = metaStore.getMeta("tooltip")?.meta_value.toString() || "1";
     projectConfig.value.chooseFlatPreview = metaStore.getMeta("flat_preview")?.meta_value.toString() || "1";
     projectConfig.value.chooseFlatPreviewOneStyle = metaStore.getMeta("flat_preview_one_style")?.meta_value.toString() || "1";
+    projectConfig.value.flatModalDefaultPlan =
+      metaStore.getMeta("flat_preview_default_plan")?.meta_value.toString() === "3d" ? "3d" : "2d";
+    projectConfig.value.flatListDefaultPlan =
+      metaStore.getMeta("flat_list_default_plan")?.meta_value.toString() === "2d" ? "2d" : "3d";
 
     const activeCurrency = metaStore.getMeta("currency")?.meta_value.toString() || "usd";
     const foundCurrency = metaStore.currencyData.find((item) => item.value === activeCurrency);

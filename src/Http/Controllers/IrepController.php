@@ -111,6 +111,8 @@ class IrepController extends Controller
             $data = $project->toArray();
             $data['project_image'] = $this->normalizeProjectImage($project->project_image);
             $data['images_360'] = $this->normalizeImages360($data['images_360'] ?? []);
+            $data['mobile_image'] = $this->normalizeProjectImage($project->mobile_image);
+            $data['views'] = $this->normalizeViews($data['views'] ?? []);
             return response()->json(['success' => true, 'data' => $data]);
         }
 
@@ -132,6 +134,53 @@ class IrepController extends Controller
                 'svgRef'       => null,
             ];
         }, $images);
+    }
+
+    /**
+     * Additional views (2..N). Each carries its own image, optional mobile
+     * image, label and SVG polygons; `svgRef` is a client-only handle.
+     */
+    private function normalizeViews(mixed $views): array
+    {
+        if (!is_array($views)) return [];
+
+        return array_values(array_map(function ($view) {
+            $image  = $this->normalizeProjectImage($view['image'] ?? null);
+            $mobile = $this->normalizeProjectImage($view['mobile_image'] ?? null);
+
+            return [
+                'label'               => $view['label'] ?? '',
+                'image'               => $image[0] ?? null,
+                'mobile_image'        => $mobile[0] ?? null,
+                'svg'                 => $this->decodeSvg($view['svg'] ?? ''),
+                'polygon_data'        => $view['polygon_data'] ?? [],
+                'mobile_svg'          => $this->decodeSvg($view['mobile_svg'] ?? ''),
+                'mobile_polygon_data' => $view['mobile_polygon_data'] ?? [],
+                'svgRef'              => null,
+                'mobileSvgRef'        => null,
+            ];
+        }, $views));
+    }
+
+    /**
+     * Views as they are stored: the same shape minus the client-only svgRef,
+     * with SVG markup decoded out of its base64 transport.
+     */
+    private function prepareViewsForStorage(mixed $views): array
+    {
+        $decoded = $this->decodeOrReturn($views);
+
+        if (!is_array($decoded)) return [];
+
+        return array_values(array_map(function ($view) {
+            if (!is_array($view)) return [];
+
+            unset($view['svgRef'], $view['mobileSvgRef']);
+            $view['svg'] = $this->decodeSvg($view['svg'] ?? '');
+            $view['mobile_svg'] = $this->decodeSvg($view['mobile_svg'] ?? '');
+
+            return $view;
+        }, $decoded));
     }
 
     private function normalizeProjectImage(mixed $value): array
@@ -195,6 +244,11 @@ class IrepController extends Controller
             'polygon_data'  => $this->decodeOrReturn($request->input('polygon_data')) ?? [],
             'images_360'    => $this->decodeOrReturn($request->input('images_360')) ?? [],
             'project_image' => $this->normalizeProjectImage($this->decodeOrReturn($request->input('project_image'))),
+            'views'         => $this->prepareViewsForStorage($request->input('views')),
+            'view_label'    => $request->input('view_label'),
+            'mobile_image'  => $this->normalizeProjectImage($this->decodeOrReturn($request->input('mobile_image'))),
+            'mobile_svg'    => $this->decodeSvg($request->input('mobile_svg', '')),
+            'mobile_polygon_data' => $this->decodeOrReturn($request->input('mobile_polygon_data')) ?? [],
         ]);
 
         return response()->json(['success' => true, 'data' => ['project_id' => $project->id, 'project' => $project]]);
@@ -217,6 +271,15 @@ class IrepController extends Controller
             'polygon_data'  => $request->has('polygon_data') ? ($this->decodeOrReturn($request->input('polygon_data')) ?? []) : $project->polygon_data,
             'images_360'    => $request->has('images_360') ? ($this->decodeOrReturn($request->input('images_360')) ?? []) : $project->images_360,
             'project_image' => $request->has('project_image') ? $this->decodeOrReturn($request->input('project_image')) : $project->project_image,
+            'views'         => $request->has('views') ? $this->prepareViewsForStorage($request->input('views')) : $project->views,
+            'view_label'    => $request->has('view_label') ? $request->input('view_label') : $project->view_label,
+            'mobile_image'  => $request->has('mobile_image')
+                ? $this->normalizeProjectImage($this->decodeOrReturn($request->input('mobile_image')))
+                : $project->mobile_image,
+            'mobile_svg'    => $request->has('mobile_svg') ? $this->decodeSvg($request->input('mobile_svg', '')) : $project->mobile_svg,
+            'mobile_polygon_data' => $request->has('mobile_polygon_data')
+                ? ($this->decodeOrReturn($request->input('mobile_polygon_data')) ?? [])
+                : $project->mobile_polygon_data,
         ]);
 
         return response()->json(['success' => true, 'data' => $project->fresh()]);
@@ -829,7 +892,11 @@ class IrepController extends Controller
         $allowedSort = ['id', 'name', 'email', 'phone', 'created_at'];
         if (!in_array($sortField, $allowedSort)) $sortField = 'created_at';
 
+        // Scoped to one project when the editor asks from a project page.
+        $projectId = $request->input('project_id');
+
         $query = Reservation::with(['flat.project', 'flat.floor', 'flat.block'])
+            ->when($projectId, fn ($q) => $q->whereHas('flat', fn ($q2) => $q2->where('project_id', $projectId)))
             ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
                 $q2->where('name', 'like', "%$search%")
                    ->orWhere('email', 'like', "%$search%")
@@ -1086,6 +1153,62 @@ class IrepController extends Controller
             return $out;
         };
 
+        // Additional views → the WordPress-compatible shape (img/mobile_img/title),
+        // with images written as /storage/… urls so the importer can resolve them.
+        $projectViews = function ($field) use ($register, $pathOf): array {
+            $out = [];
+            if (!is_array($field)) return $out;
+
+            $imageUrl = function ($entry) use ($register, $pathOf): string {
+                $path = $pathOf($entry);
+                return $path && $register($path) !== null ? '/storage/' . $path : '';
+            };
+
+            foreach ($field as $view) {
+                if (!is_array($view)) continue;
+
+                $out[] = [
+                    'img'                 => $imageUrl($view['image'] ?? null),
+                    'mobile_img'          => $imageUrl($view['mobile_image'] ?? null),
+                    'svg'                 => $view['svg'] ?? '',
+                    'mobile_svg'          => $view['mobile_svg'] ?? '',
+                    'polygon_data'        => $view['polygon_data'] ?? [],
+                    'mobile_polygon_data' => $view['mobile_polygon_data'] ?? [],
+                    'title'               => $view['label'] ?? '',
+                ];
+            }
+
+            return $out;
+        };
+
+        // Inline flat type data: register its images so they travel in the zip,
+        // writing them as attachment ids. External media (YouTube, remote
+        // video) has no file to pack and is written through untouched.
+        $exportFlatType = function ($type) use ($register, $pathOf) {
+            if (!is_array($type)) return $type;
+
+            foreach (['image_2d', 'image_3d', 'gallery'] as $key) {
+                if (!isset($type[$key]) || !is_array($type[$key])) continue;
+
+                $items = [];
+                foreach ($type[$key] as $item) {
+                    $url = is_array($item) ? ($item['url'] ?? '') : (string) $item;
+
+                    if (is_array($item) && is_string($url) && !str_contains($url, '/storage/')) {
+                        $items[] = $item;
+                        continue;
+                    }
+
+                    $id = $register($pathOf($item));
+                    if ($id !== null) $items[] = $id;
+                }
+
+                $type[$key] = $items;
+            }
+
+            return $type;
+        };
+
         $strId = fn ($v) => $v !== null ? (string) $v : null;
 
         $data = [
@@ -1096,6 +1219,9 @@ class IrepController extends Controller
                 'polygon_data'  => $project->polygon_data ?? [],
                 '360images'     => json_encode($images360($project->images_360)),
                 'project_image' => $firstId($project->project_image),
+                'project_views' => json_encode($projectViews($project->views)),
+                'mobile_svg'    => $project->mobile_svg ?? '',
+                'mobile_polygon_data' => $project->mobile_polygon_data ?? [],
             ],
             'irep_types'        => [],
             'irep_blocks'       => [],
@@ -1161,7 +1287,7 @@ class IrepController extends Controller
                 'follow_link'   => $fl->follow_link ?? null,
                 // importer treats '0'/falsy as false, anything else as true
                 'use_type'      => in_array($fl->use_type, ['true', true, 1, '1'], true) ? '1' : '0',
-                'type'          => $fl->flat_type ?? null,
+                'type'          => $exportFlatType($fl->flat_type ?? null),
                 'files'         => $idJson($fl->files),
             ];
         }
@@ -1175,9 +1301,30 @@ class IrepController extends Controller
         }
 
         foreach ($project->meta as $m) {
+            if (in_array($m->meta_key, ['primary_view_title', 'primary_mobile_image'], true)) {
+                continue; // written from the project's own columns below
+            }
+
             $data['irep_project_meta'][] = [
                 'meta_key'   => $m->meta_key,
                 'meta_value' => $m->meta_value,
+            ];
+        }
+
+        // View 1's label and mobile image are columns here but meta in the
+        // WordPress format, so emit them as meta for a round-trippable archive.
+        if (filled($project->view_label)) {
+            $data['irep_project_meta'][] = [
+                'meta_key'   => 'primary_view_title',
+                'meta_value' => $project->view_label,
+            ];
+        }
+
+        $primaryMobilePath = $pathOf($project->mobile_image[0] ?? $project->mobile_image);
+        if ($primaryMobilePath && $register($primaryMobilePath) !== null) {
+            $data['irep_project_meta'][] = [
+                'meta_key'   => 'primary_mobile_image',
+                'meta_value' => '/storage/' . $primaryMobilePath,
             ];
         }
 
@@ -1339,6 +1486,94 @@ class IrepController extends Controller
                 }, $items);
             };
 
+            // Additional views. The export format keys them the WordPress way
+            // (img / mobile_img / title); images are URLs resolved like 360 ones.
+            $resolveViews = function (mixed $raw) use ($urlToStoragePath, $makeObj, $decodeJson): array {
+                $items = $decodeJson($raw);
+                if (!is_array($items)) return [];
+
+                $resolveUrl = function (?string $url) use ($urlToStoragePath, $makeObj): ?array {
+                    if (!$url) return null;
+                    $path = $urlToStoragePath[$url] ?? null;
+                    return $path ? $makeObj($path) : null;
+                };
+
+                return array_values(array_map(function ($view) use ($resolveUrl, $decodeJson) {
+                    if (!is_array($view)) return [];
+
+                    return [
+                        'label'               => $view['title'] ?? ($view['label'] ?? ''),
+                        'image'               => $resolveUrl($view['img'] ?? ($view['image']['url'] ?? null)),
+                        'mobile_image'        => $resolveUrl($view['mobile_img'] ?? ($view['mobile_image']['url'] ?? null)),
+                        'svg'                 => $view['svg'] ?? '',
+                        'polygon_data'        => $decodeJson($view['polygon_data'] ?? []) ?: [],
+                        'mobile_svg'          => $view['mobile_svg'] ?? '',
+                        'mobile_polygon_data' => $decodeJson($view['mobile_polygon_data'] ?? []) ?: [],
+                    ];
+                }, $items));
+            };
+
+            // Flats that don't reference a shared type carry their own type data,
+            // whose images arrive as attachment ids (WordPress) or {id,url}
+            // objects (this plugin). Anything that cannot be resolved to a file
+            // is dropped — a bare id would render as a broken image.
+            $resolveTypeMedia = function (mixed $items) use ($resolveId, $urlToStoragePath, $makeObj, $decodeJson): array {
+                $items = $decodeJson($items);
+                if (!is_array($items)) return [];
+
+                $resolved = [];
+                foreach ($items as $item) {
+                    if (is_int($item) || (is_string($item) && ctype_digit($item))) {
+                        $image = $resolveId((string) $item);
+                        if ($image) $resolved[] = $image;
+                        continue;
+                    }
+
+                    if (!is_array($item)) continue;
+
+                    $url = $item['url'] ?? null;
+
+                    // External media (YouTube, remote video) travels untouched.
+                    if (is_string($url) && !isset($urlToStoragePath[$url]) && !str_contains($url, '/storage/')) {
+                        $resolved[] = $item;
+                        continue;
+                    }
+
+                    if (is_string($url) && isset($urlToStoragePath[$url])) {
+                        $resolved[] = array_merge($item, $makeObj($urlToStoragePath[$url]));
+                        continue;
+                    }
+
+                    if (is_string($url) && $url !== '') $resolved[] = $item;
+                }
+
+                return $resolved;
+            };
+
+            $resolveFlatType = function (mixed $type) use ($decodeJson, $resolveTypeMedia): mixed {
+                $type = $decodeJson($type);
+                if (!is_array($type)) return $type;
+
+                foreach (['image_2d', 'image_3d', 'gallery'] as $key) {
+                    if (array_key_exists($key, $type)) {
+                        $type[$key] = $resolveTypeMedia($type[$key]);
+                    }
+                }
+
+                return $type;
+            };
+
+            // View 1's label and mobile image travel as project meta.
+            $metaValue = function (string $key) use ($projectData): ?string {
+                foreach ($projectData['irep_project_meta'] ?? [] as $meta) {
+                    if (($meta['meta_key'] ?? '') === $key) {
+                        $value = $meta['meta_value'] ?? null;
+                        return is_string($value) && $value !== '' ? $value : null;
+                    }
+                }
+                return null;
+            };
+
             $remapPolygon = function (array $items) use (&$blockIdMap, &$floorIdMap, &$flatIdMap): array {
                 return array_map(function ($item) use (&$blockIdMap, &$floorIdMap, &$flatIdMap) {
                     $type  = $item['type'] ?? '';
@@ -1361,6 +1596,9 @@ class IrepController extends Controller
             $proj       = $projectData['irep_project'];
             $projImg    = $resolveId((string) ($proj['project_image'] ?? ''));
 
+            $primaryMobile = $metaValue('primary_mobile_image');
+            $primaryMobilePath = $primaryMobile ? ($urlToStoragePath[$primaryMobile] ?? null) : null;
+
             $project = Project::create([
                 'title'         => $proj['title'],
                 'slug'          => $this->uniqueSlug($proj['title']),
@@ -1368,6 +1606,11 @@ class IrepController extends Controller
                 'polygon_data'  => [],
                 'images_360'    => $resolve360Images($proj['360images'] ?? null),
                 'project_image' => $projImg ? [$projImg] : [],
+                'views'         => $resolveViews($proj['project_views'] ?? null),
+                'view_label'    => $metaValue('primary_view_title'),
+                'mobile_image'  => $primaryMobilePath ? [$makeObj($primaryMobilePath)] : [],
+                'mobile_svg'    => $proj['mobile_svg'] ?? '',
+                'mobile_polygon_data' => [],
             ]);
 
             // Types
@@ -1448,7 +1691,7 @@ class IrepController extends Controller
                     'click_action'  => $fl['click_action'] ?: null,
                     'follow_link'   => $decodeJson($fl['follow_link'] ?? null),
                     'use_type'      => ($fl['use_type'] && $fl['use_type'] !== '0') ? 'true' : 'false',
-                    'flat_type'     => $decodeJson($fl['type'] ?? null),
+                    'flat_type'     => $resolveFlatType($fl['type'] ?? null),
                     'files'         => $files,
                 ]);
                 $flatIdMap[(string) $fl['id']] = $flat->id;
@@ -1473,7 +1716,21 @@ class IrepController extends Controller
 
             // ── Phase 3: Remap polygon_data ───────────────────────────────────
             $projPolygon = $decodeJson($proj['polygon_data'] ?? null) ?? [];
-            $project->update(['polygon_data' => $remapPolygon($projPolygon)]);
+            $projMobilePolygon = $decodeJson($proj['mobile_polygon_data'] ?? null) ?? [];
+
+            // Views point at flats/floors/blocks too, on both their desktop and
+            // their mobile polygons.
+            $remappedViews = array_map(function ($view) use ($remapPolygon) {
+                $view['polygon_data'] = $remapPolygon($view['polygon_data'] ?? []);
+                $view['mobile_polygon_data'] = $remapPolygon($view['mobile_polygon_data'] ?? []);
+                return $view;
+            }, $project->views ?? []);
+
+            $project->update([
+                'polygon_data'        => $remapPolygon($projPolygon),
+                'mobile_polygon_data' => $remapPolygon($projMobilePolygon),
+                'views'               => $remappedViews,
+            ]);
 
             foreach ($createdBlocks as $oldBlockId => $entry) {
                 /** @var Block $block */

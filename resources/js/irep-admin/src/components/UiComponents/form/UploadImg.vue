@@ -167,6 +167,7 @@ watch(
                 <template #item="{ element: image }">
                     <UploadPreviewCard
                         :show-drag="imagesArray?.length > 1"
+                        :show-delete="multiple"
                         @delete="deleteImage(image.id)"
                     >
                         <!-- YouTube -->

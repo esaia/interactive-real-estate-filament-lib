@@ -7,6 +7,8 @@ type ProjectConfigModel = {
   chosenTooltip: string;
   chooseFlatPreview: string;
   chooseFlatPreviewOneStyle: string;
+  flatModalDefaultPlan: string;
+  flatListDefaultPlan: string;
 };
 
 const modelValue = defineModel<ProjectConfigModel>({ required: true });
@@ -31,6 +33,20 @@ const chooseFlatPreviewOneStyleValue = computed({
     modelValue.value = { ...modelValue.value, chooseFlatPreviewOneStyle: value };
   }
 });
+
+const flatModalDefaultPlanValue = computed({
+  get: () => modelValue.value.flatModalDefaultPlan,
+  set: (value: string) => {
+    modelValue.value = { ...modelValue.value, flatModalDefaultPlan: value };
+  }
+});
+
+const flatListDefaultPlanValue = computed({
+  get: () => modelValue.value.flatListDefaultPlan,
+  set: (value: string) => {
+    modelValue.value = { ...modelValue.value, flatListDefaultPlan: value };
+  }
+});
 </script>
 
 <template>
@@ -40,7 +56,12 @@ const chooseFlatPreviewOneStyleValue = computed({
     </div>
 
     <div class="flex-1">
-      <FlatPreviewChoose v-model="chooseFlatPreviewValue" v-model:oneStyle="chooseFlatPreviewOneStyleValue" />
+      <FlatPreviewChoose
+        v-model="chooseFlatPreviewValue"
+        v-model:oneStyle="chooseFlatPreviewOneStyleValue"
+        v-model:modalPlan="flatModalDefaultPlanValue"
+        v-model:listPlan="flatListDefaultPlanValue"
+      />
     </div>
   </div>
 </template>

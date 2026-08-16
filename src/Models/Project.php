@@ -11,17 +11,29 @@ class Project extends Model
 {
     protected $fillable = [
         'title', 'slug', 'svg', 'polygon_data', 'images_360', 'project_image',
+        'views', 'view_label', 'mobile_image', 'mobile_svg', 'mobile_polygon_data',
     ];
 
     protected function casts(): array
     {
         return [
             'polygon_data' => 'array',
-            'images_360'   => 'array',
+            'images_360' => 'array',
+            'views' => 'array',
+            'mobile_polygon_data' => 'array',
         ];
     }
 
     protected function projectImage(): Attribute
+    {
+        return Attribute::make(
+            get: fn ($value) => $value ? (json_decode($value, true) ?? $value) : null,
+            set: fn ($value) => is_array($value) ? json_encode($value) : $value,
+        );
+    }
+
+    /** The mobile-specific image for view 1, stored the same way as project_image. */
+    protected function mobileImage(): Attribute
     {
         return Attribute::make(
             get: fn ($value) => $value ? (json_decode($value, true) ?? $value) : null,

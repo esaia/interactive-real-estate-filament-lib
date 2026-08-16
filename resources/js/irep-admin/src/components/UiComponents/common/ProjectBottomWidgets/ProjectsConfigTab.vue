@@ -36,6 +36,22 @@ const bindField = <K extends keyof ProjectSettings>(key: K) =>
         },
     });
 
+/**
+ * The slug goes straight into a URL, so keep it URL-safe as it is typed:
+ * lowercase, spaces and punctuation collapsed to single dashes. A trailing
+ * dash is kept while typing so "my project" can still become "my-project-x".
+ */
+const slugInput = computed<string>({
+    get: () => slug.value,
+    set: (value) => {
+        slug.value = (value ?? "")
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+/, "")
+            .replace(/-{2,}/g, "-");
+    },
+});
+
 const chosenCurrencyValue = bindField("chosenCurrency");
 const chosenAreaValue = bindField("chosenArea");
 const chosenPriceSeparatorValue = bindField("chosenPriceSeparator");
@@ -66,7 +82,7 @@ const pushToFormResponsesPage = () => {
         <Input v-model="title" label="Project Title" class="w-full" />
 
         <div class="w-full">
-            <Input v-model="slug" label="Project Slug (URL)" class="w-full" />
+            <Input v-model="slugInput" label="Project Slug (URL)" class="w-full" />
             <p class="mt-1 text-xs text-gray-400">
                 Used in the project URL, e.g. <span class="font-medium">/project/{{ slug || "your-slug" }}</span>.
                 Leave unchanged to keep the current one.
