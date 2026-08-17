@@ -46,6 +46,7 @@ class IrepController extends Controller
         'irep_change_flat_config'               => 'changeFlatConfig',
         'irep_bulk_delete_flats'                => 'bulkDeleteFlats',
         'irep_import_flats_excel'               => 'importFlatsExcel',
+        'irepc_save_flat_price_history'         => 'saveFlatPriceHistory',
 
         'irep_get_types'                        => 'getTypes',
         'irep_create_type'                      => 'createType',
@@ -525,6 +526,24 @@ class IrepController extends Controller
         $flat = Flat::findOrFail($request->input('flat_id'));
         $flat->update(['conf' => $request->input('config') ?: null]);
         return response()->json(['success' => true, 'data' => $flat->fresh()]);
+    }
+
+    /**
+     * Replace a flat's price history with the rows edited in the modal. Saved
+     * as-is (minus unusable rows) so an admin can correct entries the automatic
+     * recording got wrong; `price` itself is left untouched.
+     */
+    private function saveFlatPriceHistory(Request $request): JsonResponse
+    {
+        $flat = Flat::findOrFail($request->input('flat_id'));
+
+        $entries = $this->decodeOrReturn($request->input('entries'));
+
+        $flat->update([
+            'price_history' => Flat::normalizePriceHistory(is_array($entries) ? $entries : []),
+        ]);
+
+        return response()->json(['success' => true, 'data' => $flat->fresh()->load('type')]);
     }
 
     private function bulkDeleteFlats(Request $request): JsonResponse
@@ -1289,6 +1308,7 @@ class IrepController extends Controller
                 'use_type'      => in_array($fl->use_type, ['true', true, 1, '1'], true) ? '1' : '0',
                 'type'          => $exportFlatType($fl->flat_type ?? null),
                 'files'         => $idJson($fl->files),
+                'price_history' => $fl->price_history ?? [],
             ];
         }
 
@@ -1693,6 +1713,11 @@ class IrepController extends Controller
                     'use_type'      => ($fl['use_type'] && $fl['use_type'] !== '0') ? 'true' : 'false',
                     'flat_type'     => $resolveFlatType($fl['type'] ?? null),
                     'files'         => $files,
+                    // Left null when the archive predates price history, so the
+                    // model seeds a first entry from the imported price instead.
+                    'price_history' => Flat::normalizePriceHistory(
+                        (array) ($decodeJson($fl['price_history'] ?? null) ?? [])
+                    ) ?: null,
                 ]);
                 $flatIdMap[(string) $fl['id']] = $flat->id;
             }

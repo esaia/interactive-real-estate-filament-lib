@@ -81,11 +81,6 @@ const showTypeModal = ref(false);
 const showPriceHistoryModal = ref(false);
 const activeType = ref<TypeItem | null>(null);
 
-// /** Price-history add-on: `irePlugin.price_history_addon` from Freemius `is_addon_activated`. */
-// const hasPriceHistoryAddon = computed(() =>
-//   Boolean((irePlugin as typeof irePlugin & { price_history_addon?: boolean }).price_history_addon)
-// );
-
 /** Price history from Pinia after `fetchProjectFlats` — `activeFlat` prop is not refreshed. */
 const priceHistoryInitialEntries = computed(() => {
   const id = props.activeFlat?.id;
@@ -538,7 +533,7 @@ onMounted(async () => {
   </teleport>
 
   <PriceHistoryModal
-    v-if="activeFlat && hasPriceHistoryAddon"
+    v-if="activeFlat && hasPriceHistoryAddon()"
     :show="showPriceHistoryModal"
     :flat-id="String(activeFlat.id)"
     :project-id="Number(projectStore.id)"
