@@ -43,9 +43,11 @@ const trackStyle = computed(() => ({
       class="irep-range h-1.5 w-full cursor-pointer appearance-none rounded-full accent-blue-500 disabled:opacity-50"
       @input="onInput"
     />
-    <div class="mt-0.5 flex justify-between text-[10px] text-gray-500">
-      <span>{{ props.min }}</span>
-      <span>{{ props.max }}</span>
+    <!-- The end labels default to the raw bounds; slots let a caller show what
+         the ends *mean* instead (e.g. a turtle/rabbit pair for a speed dial). -->
+    <div class="mt-0.5 flex items-center justify-between text-[10px] text-gray-500">
+      <slot name="min"><span>{{ props.min }}</span></slot>
+      <slot name="max"><span>{{ props.max }}</span></slot>
     </div>
   </div>
 </template>

@@ -9,6 +9,8 @@ import { PLUGIN_ASSETS_PATH } from "@/src/composables/constants";
 import { imageInterface, ProjectSettings } from "@/types/components";
 import Checkbox from "../../form/Checkbox.vue";
 import Info from "../../icons/Info.vue";
+import Turtle from "../../icons/Turtle.vue";
+import Rabbit from "../../icons/Rabbit.vue";
 import { pushToAddonsPage, setQuery } from "@/src/composables/helpers";
 import Modal from "../../Modal.vue";
 import { useProjectStore } from "@/src/stores/useProject";
@@ -317,7 +319,14 @@ const pushToFormResponsesPage = () => {
                         min="1"
                         max="100"
                         step="1"
-                    />
+                    >
+                        <template #min>
+                            <Turtle title="Slower rotation" />
+                        </template>
+                        <template #max>
+                            <Rabbit title="Faster rotation" />
+                        </template>
+                    </Range>
                 </div>
             </div>
 
